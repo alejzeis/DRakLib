@@ -43,7 +43,8 @@
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="source\DRakLib.d" />
+    <Compile Include="draklib\DRakLib.d" />
+    <Compile Include="draklib\RakSocket.d" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dub.json" />
