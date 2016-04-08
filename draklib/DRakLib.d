@@ -1,9 +1,15 @@
-﻿module draklib.DRakLib;
+﻿/*
+ * Code is originally from JRakLibPlus,
+ * https://github.com/jython234/JRakLibPlus/blob/master/src/main/java/io/github/jython234/jraklibplus/JRakLibPlus.java
+ * 
+ * Authors: jython234
+ */
+module draklib.DRakLib;
 import draklib.RakSocket;
 
 export class DRakLib {
 	public const int RAKNET_VERSION = 7;
-	public const byte[] RAKNET_MAGIC = new byte[] [
+	public const byte[] RAKNET_MAGIC = [
 		0x00,  0xff,  0xff, 0x00,
 			 0xfe,  0xfe,  0xfe,  0xfe,
 			 0xfd,  0xfd,  0xfd,  0xfd,
@@ -38,7 +44,6 @@ export class DRakLib {
 	
 	public const byte ACK =  0xC0;
 	public const byte NACK =  0xA0;
-	//public const byte NACK =  0x04;
 	
 	public const byte MC_PING = 0x00;
 	public const byte MC_PONG = 0x03;
