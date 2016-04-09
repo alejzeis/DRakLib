@@ -1,1 +1,9 @@
-﻿
+﻿{
+	"name": "draklib",
+	"description": "A RakNet networking library for the D language.",
+	"authors": ["jython234"],
+	"homepage": "https://github.com/jython234/DRakLib",
+    "license": "LGPL-3.0",
+    "targetType": "staticLibrary",
+	"targetPath": "bin",
+}
