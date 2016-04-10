@@ -25,35 +25,43 @@ import std.system;
 class ByteStream {
 	private byte[] buffer;
 	private uint position;
+	private bool dynamic;
 	private Endian endianess;
 
-	private this(byte[] data) {
+	private this(byte[] data, bool dynamic) {
 		this.buffer = data;
+		this.dynamic = dynamic;
 		this.position = 0;
 	}
 
-	public static ByteStream alloc(uint size) {
-		return alloc(size, Endian.bigEndian);
-	}
-
-	public static ByteStream alloc(uint size, Endian endianess) {
+	public static ByteStream alloc(uint size, Endian endianess = Endian.bigEndian) {
 		assert(size > 0);
 		
-		ByteStream stream = new ByteStream(new byte[size]);
+		ByteStream stream = new ByteStream(new byte[size], false);
 		stream.setEndianness(endianess);
 		return stream;
 	}
 
-	public static ByteStream wrap(byte[] data) {
-		return wrap(data, Endian.bigEndian);
+	public static ByteStream allocDyn(Endian endianness = Endian.bigEndian) {
+		byte[] array;
+		ByteStream stream = new ByteStream(array, true);
+		stream.setEndianness(endianness);
+		return stream;
 	}
 
-	public static ByteStream wrap(byte[] data, Endian endianess) {
+	public static ByteStream wrap(byte[] data, Endian endianess = Endian.bigEndian) {
 		assert(data.length > 0);
 
-		ByteStream stream = new ByteStream(data);
+		ByteStream stream = new ByteStream(data, false);
 		stream.setEndianness(endianess);
 		return stream;
+	}
+
+	/**
+	 * Request "size" amount of bytes to be added to the buffer.
+	 */
+	public void allocRequest(ulong size) {
+		this.buffer.length = this.buffer.length + size;
 	}
 
 	//Read "len" amount of bytes
@@ -69,7 +77,11 @@ class ByteStream {
 
 	//Write "data" to the buffer
 	public void write(byte[] data) {
-		enforce(data.length > 0 && (data.length + getPosition) <= getSize(), new OutOfBoundsException);
+		assert(data.length > 0);
+		if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException);
+		else if((data.length + getPosition()) > getSize()) {
+			allocRequest(data.length + getPosition());
+		}
 
 		uint counter = 0;
 		for(uint i = 0; i < data.length; i++) {
@@ -221,6 +233,16 @@ class ByteStream {
 		byte[] data = cast(byte[]) s;
 		writeUShort(cast(ushort) data.length);
 		write(data);
+	}
+
+	//Util methods
+
+	/**
+	 * Skip "bytes" amount of bytes. The buffer's
+	 * position will increment by that amount.
+	 */
+	public void skip(uint bytes) {
+		setPosition(getPosition() + bytes);
 	}
 
 	//Getters/Setters
