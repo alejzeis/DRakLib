@@ -18,7 +18,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 module draklib.server.RakSocket;
+import draklib.util.Exception;
+import std.exception;
 import std.socket;
+
+struct DatagramPacket {
+	public byte[] payload;
+	public Address address;
+}
 
 class RakSocket {
 	private string bindAddress;
@@ -27,6 +34,9 @@ class RakSocket {
 	private UdpSocket socket;
 
 	this(string bindAddress, ushort bindPort) {
+		enforce(bindAddress.length > 0, new InvalidParameterException("Invalid IP address"));
+		enforce(bindPort > 0, new InvalidParameterException("Bind port must not be zero"));
+
 		this.bindAddress = bindAddress;
 		this.bindPort = bindPort;
 
@@ -62,9 +72,3 @@ class RakSocket {
 		this.socket.sendTo(pk.payload, SocketFlags.NONE, pk.address);
 	}
 }
-
-struct DatagramPacket {
-	public byte[] payload;
-	public Address address;
-}
-
