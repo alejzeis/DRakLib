@@ -61,7 +61,11 @@ class ByteStream {
 	 * Request "size" amount of bytes to be added to the buffer.
 	 */
 	public void allocRequest(ulong size) {
-		this.buffer.length = this.buffer.length + size;
+		version(ARM) {
+			this.buffer.length = this.buffer.length + cast(uint) size;
+		} else {
+			this.buffer.length = this.buffer.length + size;
+		}
 	}
 
 	//Read "len" amount of bytes
