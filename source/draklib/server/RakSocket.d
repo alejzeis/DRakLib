@@ -71,4 +71,12 @@ class RakSocket {
 
 		this.socket.sendTo(pk.payload, SocketFlags.NONE, pk.address);
 	}
+
+	public string getBindIP() {
+		return bindAddress;
+	}
+
+	public ushort getBindPort() {
+		return bindPort;
+	}
 }
