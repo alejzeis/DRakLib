@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 module draklib.server.RakSocket;
-import draklib.util.Exception;
+import draklib.util.exception;
 import std.exception;
 import std.socket;
 
