@@ -1,9 +1,12 @@
 ﻿module draklib.server.RakNetServer;
 import std.random;
+import std.datetime;
 import std.exception;
+import core.thread;
 import draklib.DRakLib;
 import draklib.server.RakSocket;
 import draklib.util.Logger;
+import draklib.util.util;
 import draklib.util.exception;
 
 /**
@@ -38,6 +41,7 @@ struct ServerOptions {
 }
 
 class RakNetServer {
+	private bool crashed = false;
 	private bool running = false;
 
 	private Logger logger;
@@ -68,7 +72,26 @@ class RakNetServer {
 
 	private void run() {
 		logger.logDebug("Starting RakNetServer implementing RakNet protocol: "+DRakLib.RAKNET_VERSION+", serverID is: "+options.serverID);
+		try {
+			socket.bind();
+		} catch(Exception e) {
+			logger.logError("Failed to bind to "+socket.getBindIP()+":"+socket.getBindPort()+": "+e.info);
+			crashed = true;
+			running = false;
+			return;
+		}
+		logger.logInfo("Server started on "+socket.getBindIP()+":"+socket.getBindPort());
 
+		while(running) {
+			long start = getTime();
+			//TODO
+			long elapsed = getTime() - start;
+			if(elapsed > 50 && options.warnOnCantKeepUp) {
+				logger.logWarn("Can't keep up! ("+elapsed+">50) Did the system time change or is the server overloaded?");
+			} else if(elapsed < 50) {
+				Thread.sleep(!dur("msecs")(50 - elapsed));
+			}
+		}
 	}
 
 	public string getBindIp() {
