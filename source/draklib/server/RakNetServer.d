@@ -1,12 +1,15 @@
 ﻿module draklib.server.RakNetServer;
+import std.conv;
 import std.random;
 import std.datetime;
 import std.exception;
+
 import core.thread;
+
 import draklib.DRakLib;
 import draklib.server.RakSocket;
 import draklib.util.Logger;
-import draklib.util.util;
+import draklib.util.misc;
 import draklib.util.exception;
 
 /**
@@ -23,16 +26,16 @@ struct ServerOptions {
 	public uint recvBufferSize = 4096;
 	public uint sendBufferSize = 4096;
 	public uint packetTimeout = 5000;
-	public boolean portChecking = true;
+	public bool portChecking = true;
 	/**
      * If this is true then the server will disconnect clients with invalid raknet protocols.
      * The server currently supports protocol 7
      */
-	public boolean disconnectInvalidProtocol = true;
+	public bool disconnectInvalidProtocol = true;
 	/**
      * If to log warning messages when a tick takes longer than 50 milliseconds.
      */
-	public boolean warnOnCantKeepUp = true;
+	public bool warnOnCantKeepUp = true;
 	/**
      * The server's unique 64 bit identifier. This is usually generated
      * randomly at start. If negative, the server will randomly generate the number.
@@ -51,11 +54,11 @@ class RakNetServer {
 	this(Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
 		socket = new RakSocket(bindIp, bindPort);
 		this.options = options;
+		this.logger = logger;
 
 		if(this.options.serverID == -1) {
 			auto rn = Random();
 			this.options.serverID = uniform(0L, long.max, rn); // Generate serverId
-			rn = null;
 		}
 	}
 
@@ -71,27 +74,31 @@ class RakNetServer {
 	}
 
 	private void run() {
-		logger.logDebug("Starting RakNetServer implementing RakNet protocol: "+DRakLib.RAKNET_VERSION+", serverID is: "+options.serverID);
+		logger.logDebug("Starting RakNetServer implementing RakNet protocol: " ~ to!string(DRakLib.RAKNET_VERSION) ~ ", serverID is: " ~ to!string(options.serverID));
 		try {
 			socket.bind();
 		} catch(Exception e) {
-			logger.logError("Failed to bind to "+socket.getBindIP()+":"+socket.getBindPort()+": "+e.info);
+			logger.logError("Failed to bind to " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof ~ ": " ~ e.info.toString());
 			crashed = true;
 			running = false;
 			return;
 		}
-		logger.logInfo("Server started on "+socket.getBindIP()+":"+socket.getBindPort());
+		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof);
 
 		while(running) {
 			long start = getTime();
-			//TODO
+			doTick();
 			long elapsed = getTime() - start;
 			if(elapsed > 50 && options.warnOnCantKeepUp) {
-				logger.logWarn("Can't keep up! ("+elapsed+">50) Did the system time change or is the server overloaded?");
+				logger.logWarn("Can't keep up! (" ~ elapsed.stringof ~ ">50) Did the system time change or is the server overloaded?");
 			} else if(elapsed < 50) {
-				Thread.sleep(!dur("msecs")(50 - elapsed));
+				Thread.sleep(dur!("msecs")( 50 - elapsed));
 			}
 		}
+	}
+
+	private void doTick() {
+		//TODO
 	}
 
 	public string getBindIp() {
