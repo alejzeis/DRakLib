@@ -1,4 +1,5 @@
 ﻿module draklib.server.RakNetServer;
+import std.digest.digest;
 import std.conv;
 import std.random;
 import std.datetime;
@@ -90,7 +91,7 @@ class RakNetServer {
 			doTick();
 			long elapsed = getTime() - start;
 			if(elapsed > 50 && options.warnOnCantKeepUp) {
-				logger.logWarn("Can't keep up! (" ~ elapsed.stringof ~ ">50) Did the system time change or is the server overloaded?");
+				logger.logWarn("Can't keep up! (" ~ to!string(elapsed) ~ ">50) Did the system time change or is the server overloaded?");
 			} else if(elapsed < 50) {
 				Thread.sleep(dur!("msecs")( 50 - elapsed));
 			}
@@ -98,7 +99,10 @@ class RakNetServer {
 	}
 
 	private void doTick() {
-		//TODO
+		DatagramPacket pk = socket.recv();
+		if(pk.payload.length > 0) {
+			logger.logDebug("Packet: " ~ to!string(pk.payload));
+		}
 	}
 
 	public string getBindIp() {
