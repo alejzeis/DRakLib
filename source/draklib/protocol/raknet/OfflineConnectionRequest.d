@@ -2,6 +2,7 @@
 import draklib.ByteStream;
 import draklib.DRakLib;
 import draklib.protocol.Packet;
+import draklib.util.SystemAddress;
 
 class OfflineConnectionRequest1 : Packet {
 	public static const ubyte PID = DRakLib.ID_OPEN_CONNECTION_REQUEST_1;
@@ -33,4 +34,28 @@ class OfflineConnectionRequest1 : Packet {
 
 class OfflineConnectionRequest2 : Packet {
 	public static const ubyte PID = DRakLib.ID_OPEN_CONNECTION_REQUEST_2;
+	public SystemAddress serverAddress;
+	public ushort mtu;
+	public long clientID;
+
+	override {
+		protected void _encode(ByteStream stream) {
+			stream.write(cast(byte[]) DRakLib.RAKNET_MAGIC);
+			serverAddress.write(stream);
+			stream.writeUShort(mtu);
+			stream.writeLong(clientID);
+		}
+
+		protected void _decode(ByteStream stream) {
+			super._decode(stream);
+		}
+
+		public ulong getLength() {
+			return 34;
+		}
+
+		public ubyte getID() {
+			return PID;
+		}
+	}
 }

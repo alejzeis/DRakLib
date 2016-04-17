@@ -1,7 +1,9 @@
 ﻿module draklib.util.misc;
 
 version(Posix) {
-	import core.sys.linux.time;
+	//import core.sys.linux.time; //Does not seem to work
+	import std.c.linux.linux;
+
 	long getTime() {
 		timeval t;
 		gettimeofday(&t, null);
