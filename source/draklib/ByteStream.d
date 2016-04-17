@@ -266,6 +266,10 @@ class ByteStream {
 		return cast(uint) this.buffer.length;
 	}
 
+	public uint getRemainingLength() {
+		return cast(uint) (this.buffer.length - getPosition());
+	}
+
 	public Endian getEndianess() {
 		return this.endianess;
 	}
