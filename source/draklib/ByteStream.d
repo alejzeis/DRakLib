@@ -91,10 +91,11 @@ class ByteStream {
 
 		uint counter = 0;
 		for(uint i = 0; i < data.length; i++) {
-			debug writeln("i: ", i, ", counter: ", counter, ", data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
+			//debug writeln("i: ", i, ", counter: ", counter, ", data: ", data, "data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
 			this.buffer[getPosition() + counter] = data[i];
 			counter++;
 		}
+		this.setPosition(getPosition() + counter);
 	}
 
 	//Read Methods

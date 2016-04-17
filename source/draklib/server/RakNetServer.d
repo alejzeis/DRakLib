@@ -4,11 +4,14 @@ import std.conv;
 import std.random;
 import std.datetime;
 import std.exception;
+import std.socket : InternetAddress, Address;
 
 import core.thread;
 
 import draklib.DRakLib;
 import draklib.server.RakSocket;
+import draklib.protocol.raknet.UnconnectedPingPacket;
+import draklib.protocol.raknet.UnconnectedPongPacket;
 import draklib.util.Logger;
 import draklib.util.misc;
 import draklib.util.exception;
@@ -100,9 +103,53 @@ class RakNetServer {
 
 	private void doTick() {
 		DatagramPacket pk = socket.recv();
-		if(pk.payload.length > 0) {
+		int max = options.maxPacketsPerTick;
+		if(pk.payload.length > 0 && max >0) {
 			logger.logDebug("Packet: " ~ to!string(pk.payload));
+			handlePacket(pk);
+			max--;
 		}
+	}
+
+	private void handlePacket(DatagramPacket pk) {
+		switch(cast(ubyte) pk.payload[0]) {
+			case DRakLib.ID_CONNECTED_PING_OPEN_CONNECTIONS:
+				UnconnectedPingPacket1 upp1 = new UnconnectedPingPacket1();
+				upp1.decode(pk.payload);
+
+				UnconnectedPongPacket pong1 = new UnconnectedPongPacket();
+				pong1.time = upp1.pingId;
+				pong1.serverId = options.serverID;
+				pong1.ident = options.broadcastName;
+				sendPacket(pong1.encode(), pk.address);
+				break;
+
+			case DRakLib.ID_UNCONNECTED_PING_OPEN_CONNECTIONS:
+				UnconnectedPingPacket2 upp2 = new UnconnectedPingPacket2();
+				upp2.decode(pk.payload);
+
+				AdvertiseSystemPacket asp = new AdvertiseSystemPacket();
+				asp.time = upp2.pingId;
+				asp.serverId = options.serverID;
+				asp.ident = options.broadcastName;
+				sendPacket(asp.encode(), pk.address);
+				break;
+
+			default:
+				//TODO: sessions
+				break;
+		}
+	}
+
+	public void sendPacket(byte[] data, Address address) {
+		DatagramPacket dp = DatagramPacket();
+		dp.address = address;
+		dp.payload = data;
+		socket.send(dp);
+	}
+
+	public void sendPacket(byte[] data, string ip, ushort port) {
+		sendPacket(data, new InternetAddress(ip, port));
 	}
 
 	public string getBindIp() {
