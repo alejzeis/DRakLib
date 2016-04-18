@@ -10,8 +10,10 @@ import core.thread;
 
 import draklib.DRakLib;
 import draklib.server.RakSocket;
+import draklib.server.Session;
 import draklib.protocol.raknet.UnconnectedPingPacket;
 import draklib.protocol.raknet.UnconnectedPongPacket;
+import draklib.util.SystemAddress;
 import draklib.util.Logger;
 import draklib.util.misc;
 import draklib.util.exception;
@@ -54,6 +56,8 @@ class RakNetServer {
 	private Logger logger;
 	private ServerOptions options;
 	private RakSocket socket;
+
+	private Session[string] sessions;
 
 	this(Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
 		socket = new RakSocket(bindIp, bindPort);
@@ -104,10 +108,13 @@ class RakNetServer {
 	private void doTick() {
 		DatagramPacket pk = socket.recv();
 		int max = options.maxPacketsPerTick;
-		if(pk.payload.length > 0 && max >0) {
+		if(pk.address !is null && pk.payload.length > 0 && max >0) {
 			logger.logDebug("Packet: " ~ to!string(pk.payload));
 			handlePacket(pk);
 			max--;
+		}
+		foreach(Session session; sessions.values) {
+			session.update();
 		}
 	}
 
@@ -136,7 +143,12 @@ class RakNetServer {
 				break;
 
 			default:
-				//TODO: sessions
+				Session s = sessions.get(to!string(pk.address), null);
+				if(s is null) {
+					s = new Session(this, SystemAddress(pk.address));
+					sessions[s.getAddress().toString()] = s;
+				}
+				s.handlePacket(pk.payload);
 				break;
 		}
 	}
@@ -150,6 +162,10 @@ class RakNetServer {
 
 	public void sendPacket(byte[] data, string ip, ushort port) {
 		sendPacket(data, new InternetAddress(ip, port));
+	}
+
+	package Logger getLogger() {
+		return logger;
 	}
 
 	public string getBindIp() {

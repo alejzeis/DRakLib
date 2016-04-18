@@ -128,6 +128,10 @@ class ByteStream {
 		return cast(ushort) readShort();
 	}
 
+	public uint readUInt24_LE() {
+		return (readUByte()) | (readUByte() << 8) | (readUByte() << 16);
+	}
+
 	public int readInt() {
 		ubyte b1 = readUByte();
 		ubyte b2 = readUByte();
@@ -194,6 +198,12 @@ class ByteStream {
 
 	public void writeUShort(ushort s) {
 		writeShort(cast(short) s);
+	}
+
+	public void writeUInt24_LE(uint i24) {
+		writeUByte(i24 & 0xFF);
+		writeUByte((i24 >> 8) & 0xFF);
+		writeUByte((i24 >> 16) & 0xFF);
 	}
 
 	public void writeInt(int i) {

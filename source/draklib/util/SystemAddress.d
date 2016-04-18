@@ -1,7 +1,11 @@
 ﻿module draklib.util.SystemAddress;
+import std.socket;
+import std.array;
 import std.conv;
 import std.array;
+
 import draklib.ByteStream;
+import draklib.util.exception;
 
 struct SystemAddress {
 	public ubyte ipVersion;
@@ -12,6 +16,19 @@ struct SystemAddress {
 		this.ipVersion = ipVersion;
 		this.ip = ip;
 		this.port = port;
+	}
+
+	this(Address address) {
+		switch(address.addressFamily) {
+			case AddressFamily.INET: //IPv4
+				ipVersion = 4;
+				ip = split(to!string(address), ".")[0];
+				port = to!ushort(split(to!string(address), ".")[1]);
+				break;
+			
+			default:
+				throw new InvalidParameterException("Address supplied is not IPv4");
+		}
 	}
 
 	public void write(ByteStream stream) {
@@ -37,5 +54,9 @@ struct SystemAddress {
 		} else if(ipVersion == 6) {
 			//Not supported yet
 		}
+	}
+
+	public string toString() {
+		return ip ~ ":" ~ to!string(port);
 	}
 }

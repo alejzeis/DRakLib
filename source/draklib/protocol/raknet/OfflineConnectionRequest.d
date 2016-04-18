@@ -34,7 +34,7 @@ class OfflineConnectionRequest1 : Packet {
 
 class OfflineConnectionRequest2 : Packet {
 	public static const ubyte PID = DRakLib.ID_OPEN_CONNECTION_REQUEST_2;
-	public SystemAddress serverAddress;
+	public SystemAddress serverAddress = SystemAddress();
 	public ushort mtu;
 	public long clientID;
 
@@ -47,7 +47,10 @@ class OfflineConnectionRequest2 : Packet {
 		}
 
 		protected void _decode(ByteStream stream) {
-			super._decode(stream);
+			stream.skip(16); //MAGIC
+			serverAddress.read(stream);
+			mtu = stream.readUShort();
+			clientID = stream.readLong();
 		}
 
 		public ulong getLength() {
