@@ -6,7 +6,9 @@ import draklib.server.RakNetServer;
 
 int main() {
 	Logger l = new LoggerImpl();
-	RakNetServer server = new RakNetServer(l, cast(ushort) 19132);
+	ServerOptions options = ServerOptions();
+	options.broadcastName = "MCPE;A DRakLib Server;46;0.15.0;0;0";
+	RakNetServer server = new RakNetServer(l, cast(ushort) 19132, "0.0.0.0", options);
 	server.start();
 	return 0;
 }
