@@ -15,7 +15,6 @@ import draklib.protocol.raknet.UnconnectedPingPacket;
 import draklib.protocol.raknet.UnconnectedPongPacket;
 import draklib.util.SystemAddress;
 import draklib.util.Logger;
-import draklib.util.misc;
 import draklib.util.exception;
 
 /**
@@ -93,10 +92,13 @@ class RakNetServer {
 		}
 		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof);
 
+		StopWatch sw = StopWatch();
 		while(running) {
-			long start = getTime();
+			sw.reset();
+			sw.start();
 			doTick();
-			long elapsed = getTime() - start;
+			sw.stop();
+			long elapsed = sw.peek().msecs();
 			if(elapsed > 50 && options.warnOnCantKeepUp) {
 				logger.logWarn("Can't keep up! (" ~ to!string(elapsed) ~ ">50) Did the system time change or is the server overloaded?");
 			} else if(elapsed < 50) {

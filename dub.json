@@ -4,6 +4,6 @@
 	"authors": ["jython234"],
 	"homepage": "https://github.com/jython234/DRakLib",
     "license": "LGPL-3.0",
-    "targetType": "staticLibrary",
+    "targetType": "executable",
 	"targetPath": "bin",
 }
