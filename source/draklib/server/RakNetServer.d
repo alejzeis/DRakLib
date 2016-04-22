@@ -64,8 +64,8 @@ class RakNetServer {
 		this.logger = logger;
 
 		if(this.options.serverID == -1) {
-			auto rn = Random();
-			this.options.serverID = uniform(0L, long.max, rn); // Generate serverId
+			//auto rn = Random();
+			this.options.serverID = uniform(0L, long.max); // Generate serverId
 		}
 	}
 
@@ -85,12 +85,13 @@ class RakNetServer {
 		try {
 			socket.bind();
 		} catch(Exception e) {
-			logger.logError("Failed to bind to " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof ~ ": " ~ e.info.toString());
+			logger.logError("Failed to bind to " ~ socket.getBindIP() ~ ":" ~ to!string(socket.getBindPort()));
+			logger.logTrace(e.toString());
 			crashed = true;
 			running = false;
 			return;
 		}
-		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof);
+		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ to!string(socket.getBindPort()));
 
 		StopWatch sw = StopWatch();
 		while(running) {
@@ -111,7 +112,7 @@ class RakNetServer {
 		DatagramPacket pk = socket.recv();
 		int max = options.maxPacketsPerTick;
 		if(pk.address !is null && pk.payload.length > 0 && max >0) {
-			logger.logDebug("Packet: " ~ to!string(pk.payload));
+			//logger.logDebug("Packet: " ~ to!string(pk.payload));
 			handlePacket(pk);
 			max--;
 		}
@@ -156,6 +157,7 @@ class RakNetServer {
 	}
 
 	public void sendPacket(byte[] data, Address address) {
+		logger.logDebug("Packet: " ~ to!string(data));
 		DatagramPacket dp = DatagramPacket();
 		dp.address = address;
 		dp.payload = data;
@@ -164,6 +166,10 @@ class RakNetServer {
 
 	public void sendPacket(byte[] data, string ip, ushort port) {
 		sendPacket(data, new InternetAddress(ip, port));
+	}
+
+	package ServerOptions getOptions() {
+		return options;
 	}
 
 	package Logger getLogger() {

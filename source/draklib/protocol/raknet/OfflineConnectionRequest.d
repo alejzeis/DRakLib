@@ -7,7 +7,7 @@ import draklib.util.SystemAddress;
 class OfflineConnectionRequest1 : Packet {
 	public static const ubyte PID = DRakLib.ID_OPEN_CONNECTION_REQUEST_1;
 	public ubyte protocolVersion;
-	public uint nullPayloadLength;
+	public ushort nullPayloadLength;
 	
 	override {
 		protected void _encode(ByteStream stream) {
@@ -19,13 +19,13 @@ class OfflineConnectionRequest1 : Packet {
 		protected void _decode(ByteStream stream) {
 			stream.skip(16); //MAGIC
 			protocolVersion = stream.readUByte();
-			nullPayloadLength = stream.getRemainingLength() + 18;
+			nullPayloadLength = cast(ushort) (stream.getRemainingLength() + 18);
 		}
 		
 		public ulong getLength() {
 			return nullPayloadLength; //Null payload length includes overhead of packet
 		}
-		
+
 		public ubyte getID() {
 			return PID;
 		}

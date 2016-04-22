@@ -3,6 +3,7 @@ import std.socket;
 import std.array;
 import std.conv;
 import std.array;
+import std.socket : Address, InternetAddress;
 
 import draklib.ByteStream;
 import draklib.util.exception;
@@ -58,5 +59,9 @@ struct SystemAddress {
 
 	public string toString() {
 		return ip ~ ":" ~ to!string(port);
+	}
+
+	public Address asAddress() {
+		return new InternetAddress(ip, port);
 	}
 }

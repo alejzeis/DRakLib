@@ -5,4 +5,5 @@ interface Logger {
 	public void logInfo(string message);
 	public void logWarn(string message);
 	public void logError(string message);
+	public void logTrace(string fullTrace);
 }

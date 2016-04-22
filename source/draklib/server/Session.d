@@ -1,7 +1,10 @@
 ﻿module draklib.server.Session;
 import std.conv;
 
+import draklib.DRakLib;
 import draklib.server.RakNetServer;
+import draklib.protocol.raknet.OfflineConnectionRequest;
+import draklib.protocol.raknet.OfflineConnectionResponse;
 import draklib.util.SystemAddress;
 
 /**
@@ -43,11 +46,30 @@ class Session {
 	}
 
 	package void update() {
+		
+	}
 
+	public void sendRaw(byte[] data) {
+		server.getLogger().logDebug("OUT: " ~ to!string(data[0]));
+		server.sendPacket(data, address.asAddress());
 	}
 
 	package void handlePacket(byte[] packet) {
-		server.getLogger().logDebug("Packet: " ~ to!string(packet[0]));
+		server.getLogger().logDebug("IN: " ~ to!string(packet[0]));
+		switch(packet[0]) {
+			case DRakLib.ID_OPEN_CONNECTION_REQUEST_1:
+				OfflineConnectionRequest1 req1 = new OfflineConnectionRequest1();
+				req1.decode(packet);
+				mtu = req1.nullPayloadLength;
+
+				OfflineConnectionResponse1 res1 = new OfflineConnectionResponse1();
+				res1.serverID = server.getOptions().serverID;
+				res1.mtu = mtu;
+				sendRaw(res1.encode());
+				break;
+			default:
+				break;
+		}
 	}
 
 	public RakNetServer getServer() {

@@ -1,5 +1,6 @@
 import std.stdio;
 import std.conv;
+import std.array;
 import draklib.DRakLib;
 import draklib.util.Logger;
 import draklib.server.RakNetServer;
@@ -26,6 +27,11 @@ public class LoggerImpl : Logger {
 		}
 		public void logError(string message) {
 			writeln("[ERROR]: " ~ message);
+		}
+		public void logTrace(string fullTrace) {
+			foreach(string segment; split(fullTrace, "\n")) {
+				writeln("[TRACE]: " ~ segment);
+			}
 		}
 	}
 }
