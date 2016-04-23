@@ -19,6 +19,7 @@
  */
 module draklib.ByteStream;
 import std.stdio;
+import std.conv;
 import std.exception;
 import std.system;
 
@@ -43,7 +44,7 @@ class ByteStream {
 	}
 
 	public static ByteStream allocDyn(Endian endianness = Endian.bigEndian) {
-		byte[] array;
+		byte[] array = [];
 		ByteStream stream = new ByteStream(array, true);
 		stream.setEndianness(endianness);
 		return stream;
@@ -75,7 +76,7 @@ class ByteStream {
 	//Read "len" amount of bytes
 	public byte[] read(int len) {
 		//assert(len > 0 && len < (getSize() - getPosition()), "Length not in bounds");
-		enforce(len > 0 && len < (getSize() - getPosition()), new OutOfBoundsException);
+		enforce(len > 0 && len < (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 
 		int futurePos = getPosition() + len;
 		byte[] data = this.buffer.dup[getPosition() .. futurePos];
@@ -86,7 +87,7 @@ class ByteStream {
 	//Write "data" to the buffer
 	public void write(byte[] data) {
 		assert(data.length > 0);
-		if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException);
+		if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException(to!string(data.length) ~ " needed but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 		else if((data.length + getPosition()) > getSize()) {
 			allocRequest(data.length + getPosition());
 		}
@@ -298,5 +299,9 @@ class ByteStream {
 class OutOfBoundsException : Exception {
 	this() {
 		super("Data is out of bounds");
+	}
+
+	this(string msg) {
+		super(msg);
 	}
 }

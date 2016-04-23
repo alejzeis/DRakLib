@@ -57,7 +57,7 @@ class OfflineConnectionResponse2 : Packet {
 		}
 		
 		public ulong getLength() {
-			return 30;
+			return 35;
 		}
 		
 		public ubyte getID() {

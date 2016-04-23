@@ -31,7 +31,6 @@ struct ServerOptions {
 	public uint recvBufferSize = 4096;
 	public uint sendBufferSize = 4096;
 	public uint packetTimeout = 5000;
-	public bool portChecking = true;
 	/**
      * If this is true then the server will disconnect clients with invalid raknet protocols.
      * The server currently supports protocol 7
@@ -146,9 +145,10 @@ class RakNetServer {
 				break;
 
 			default:
-				Session s = sessions.get(to!string(pk.address), null);
+				Session s = sessions.get(pk.address.toString(), null);
 				if(s is null) {
 					s = new Session(this, SystemAddress(pk.address));
+					logger.logDebug("New session from: " ~ s.getAddress().toString());
 					sessions[s.getAddress().toString()] = s;
 				}
 				s.handlePacket(pk.payload);
@@ -157,11 +157,14 @@ class RakNetServer {
 	}
 
 	public void sendPacket(byte[] data, Address address) {
-		logger.logDebug("Packet: " ~ to!string(data));
 		DatagramPacket dp = DatagramPacket();
 		dp.address = address;
 		dp.payload = data;
 		socket.send(dp);
+	}
+
+	public void sendPacket(byte[] data, SystemAddress address) {
+		sendPacket(data, new InternetAddress(address.ip, address.port));
 	}
 
 	public void sendPacket(byte[] data, string ip, ushort port) {
