@@ -95,7 +95,7 @@ class Session {
 				break;
 			default:
 				if(packet[0] >= DRakLib.CUSTOM_PACKET_0 && packet[0] <= DRakLib.CUSTOM_PACKET_F) {
-
+					
 				}
 				break;
 		}

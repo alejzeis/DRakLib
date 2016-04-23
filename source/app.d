@@ -11,7 +11,9 @@ int main() {
 	options.broadcastName = "MCPE;A DRakLib Server;46;0.15.0;0;0";
 	RakNetServer server = new RakNetServer(l, cast(ushort) 19132, "0.0.0.0", options);
 	server.start();
-	return 0;
+	int code;
+	server.hasCrashed() ? code = 1 : code = 2;
+	return code;
 }
 
 public class LoggerImpl : Logger {

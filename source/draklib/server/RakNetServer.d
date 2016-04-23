@@ -48,8 +48,8 @@ struct ServerOptions {
 }
 
 class RakNetServer {
-	private bool crashed = false;
-	private bool running = false;
+	private shared bool crashed = false;
+	private shared bool running = false;
 
 	private Logger logger;
 	private ServerOptions options;
@@ -96,7 +96,15 @@ class RakNetServer {
 		while(running) {
 			sw.reset();
 			sw.start();
-			doTick();
+			try {
+				doTick();
+			} catch(Exception e) {
+				logger.logError("Exception in tick, the server has crashed!");
+				logger.logTrace(e.toString());
+				crashed = true;
+				running = false;
+				return;
+			}
 			sw.stop();
 			long elapsed = sw.peek().msecs();
 			if(elapsed > 50 && options.warnOnCantKeepUp) {
@@ -185,5 +193,13 @@ class RakNetServer {
 
 	public ushort getBindPort() {
 		return socket.getBindPort();
+	}
+
+	public bool isRunning() {
+		return running;
+	}
+
+	public bool hasCrashed() {
+		return crashed;
 	}
 }
