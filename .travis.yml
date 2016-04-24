@@ -6,4 +6,4 @@ os:
   - linux
   - osx
 
-script: dub build --compiler=${DC} --arch=x86 && dub build --compiler=${DC} --arch=x86_64
+script: dub build --compiler=${DC}
