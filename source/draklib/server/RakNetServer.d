@@ -149,9 +149,18 @@ class RakNetServer {
 				if(s is null) {
 					s = new Session(this, SystemAddress(pk.address));
 					sessions[s.getAddress().toString()] = s;
+					logger.logDebug("New session from " ~ s.getAddress().toString());
 				}
 				s.handlePacket(pk.payload);
 				break;
+		}
+	}
+
+	package void onSessionClose(Session s, string reason = null) {
+		if(sessions[s.getAddress().toString()] is null) return;
+		sessions.remove(s.getAddress().toString());
+		if(reason !is null) {
+			logger.logDebug("Session " ~ s.getAddress().toString() ~ " closed: " ~ reason);
 		}
 	}
 
