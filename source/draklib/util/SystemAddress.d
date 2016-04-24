@@ -1,8 +1,9 @@
 ﻿module draklib.util.SystemAddress;
+import std.stdio;
 import std.socket;
 import std.array;
 import std.conv;
-import std.array;
+import std.socket : Address, InternetAddress;
 
 import draklib.ByteStream;
 import draklib.util.exception;
@@ -22,8 +23,8 @@ struct SystemAddress {
 		switch(address.addressFamily) {
 			case AddressFamily.INET: //IPv4
 				ipVersion = 4;
-				ip = split(to!string(address), ".")[0];
-				port = to!ushort(split(to!string(address), ".")[1]);
+				ip = split(address.toString(), ":")[0];
+				port = to!ushort(split(address.toString(), ":")[1]);
 				break;
 			
 			default:
@@ -36,6 +37,7 @@ struct SystemAddress {
 		final switch(ipVersion) {
 			case 4:
 				foreach(string s; split(ip, ".")) {
+					writeln("wrote: " ~ s);
 					stream.writeUByte(~to!ubyte(s));
 				}
 				stream.writeUShort(port);
@@ -58,5 +60,9 @@ struct SystemAddress {
 
 	public string toString() {
 		return ip ~ ":" ~ to!string(port);
+	}
+
+	public Address asAddress() {
+		return new InternetAddress(ip, port);
 	}
 }

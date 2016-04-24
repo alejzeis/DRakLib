@@ -31,7 +31,6 @@ struct ServerOptions {
 	public uint recvBufferSize = 4096;
 	public uint sendBufferSize = 4096;
 	public uint packetTimeout = 5000;
-	public bool portChecking = true;
 	/**
      * If this is true then the server will disconnect clients with invalid raknet protocols.
      * The server currently supports protocol 7
@@ -49,8 +48,8 @@ struct ServerOptions {
 }
 
 class RakNetServer {
-	private bool crashed = false;
-	private bool running = false;
+	private shared bool crashed = false;
+	private shared bool running = false;
 
 	private Logger logger;
 	private ServerOptions options;
@@ -64,8 +63,8 @@ class RakNetServer {
 		this.logger = logger;
 
 		if(this.options.serverID == -1) {
-			auto rn = Random();
-			this.options.serverID = uniform(0L, long.max, rn); // Generate serverId
+			//auto rn = Random();
+			this.options.serverID = uniform(0L, long.max); // Generate serverId
 		}
 	}
 
@@ -85,18 +84,27 @@ class RakNetServer {
 		try {
 			socket.bind();
 		} catch(Exception e) {
-			logger.logError("Failed to bind to " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof ~ ": " ~ e.info.toString());
+			logger.logError("Failed to bind to " ~ socket.getBindIP() ~ ":" ~ to!string(socket.getBindPort()));
+			logger.logTrace(e.toString());
 			crashed = true;
 			running = false;
 			return;
 		}
-		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ socket.getBindPort().stringof);
+		logger.logInfo("Server started on " ~ socket.getBindIP() ~ ":" ~ to!string(socket.getBindPort()));
 
 		StopWatch sw = StopWatch();
 		while(running) {
 			sw.reset();
 			sw.start();
-			doTick();
+			try {
+				doTick();
+			} catch(Exception e) {
+				logger.logError("Exception in tick, the server has crashed!");
+				logger.logTrace(e.toString());
+				crashed = true;
+				running = false;
+				return;
+			}
 			sw.stop();
 			long elapsed = sw.peek().msecs();
 			if(elapsed > 50 && options.warnOnCantKeepUp) {
@@ -111,7 +119,7 @@ class RakNetServer {
 		DatagramPacket pk = socket.recv();
 		int max = options.maxPacketsPerTick;
 		if(pk.address !is null && pk.payload.length > 0 && max >0) {
-			logger.logDebug("Packet: " ~ to!string(pk.payload));
+			//logger.logDebug("Packet: " ~ to!string(pk.payload));
 			handlePacket(pk);
 			max--;
 		}
@@ -145,9 +153,10 @@ class RakNetServer {
 				break;
 
 			default:
-				Session s = sessions.get(to!string(pk.address), null);
+				Session s = sessions.get(pk.address.toString(), null);
 				if(s is null) {
 					s = new Session(this, SystemAddress(pk.address));
+					logger.logDebug("New session from: " ~ s.getAddress().toString());
 					sessions[s.getAddress().toString()] = s;
 					logger.logDebug("New session from " ~ s.getAddress().toString());
 				}
@@ -171,8 +180,16 @@ class RakNetServer {
 		socket.send(dp);
 	}
 
+	public void sendPacket(byte[] data, SystemAddress address) {
+		sendPacket(data, new InternetAddress(address.ip, address.port));
+	}
+
 	public void sendPacket(byte[] data, string ip, ushort port) {
 		sendPacket(data, new InternetAddress(ip, port));
+	}
+
+	package ServerOptions getOptions() {
+		return options;
 	}
 
 	package Logger getLogger() {
@@ -185,5 +202,13 @@ class RakNetServer {
 
 	public ushort getBindPort() {
 		return socket.getBindPort();
+	}
+
+	public bool isRunning() {
+		return running;
+	}
+
+	public bool hasCrashed() {
+		return crashed;
 	}
 }
