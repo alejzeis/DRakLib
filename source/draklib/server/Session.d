@@ -99,7 +99,27 @@ class Session {
 				break;
 			// ACK/NACK
 			case DRakLib.ACK:
+				ACKPacket ack = new ACKPacket();
+				ack.decode(packet);
 
+				foreach(uint num; ack.packets) {
+					if(num in recoveryQueue) {
+						recoveryQueue.remove(num);
+					}
+				}
+				break;
+			case DRakLib.NACK:
+				NACKPacket nack = new NACKPacket();
+				nack.decode(packet);
+
+				foreach(uint num; nack.packets) {
+					if(num in recoveryQueue) {
+						CustomPacket cp = recoveryQueue[num];
+						cp.sequenceNumber = sendSeqNum++;
+						sendRaw(cp.encode());
+						recoveryQueue.remove(num);
+					} else debug server.getLogger().logWarn("NACK " ~ to!string(num) ~ " not found in recovery queue");
+				}
 				break;
 			default:
 				if(packet[0] >= DRakLib.CUSTOM_PACKET_0 && packet[0] <= DRakLib.CUSTOM_PACKET_F) {
