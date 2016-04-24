@@ -5,6 +5,8 @@ import draklib.DRakLib;
 import draklib.server.RakNetServer;
 import draklib.protocol.raknet.OfflineConnectionRequest;
 import draklib.protocol.raknet.OfflineConnectionResponse;
+import draklib.protocol.raknet.AcknowledgePacket;
+import draklib.protocol.raknet.ReliabilityLayer;
 import draklib.util.SystemAddress;
 
 /**
@@ -22,13 +24,13 @@ class Session {
 	public static const uint MAX_SPLIT_SIZE = 128;
 	public static const uint MAX_SPLIT_COUNT = 4;
 
-	private uint state;
-	private ushort mtu;
-	private long clientGUID;
-	private long clientID;
+	private shared uint state;
+	private shared ushort mtu;
+	private shared long clientGUID;
+	private shared long clientID;
 	private long timeLastPacketReceived;
 
-	private int lastPing = -99;
+	private shared int lastPing = -99;
 	
 	private int lastSeqNum = -1;
 	private uint sendSeqNum = 0;
@@ -36,10 +38,16 @@ class Session {
 	private uint messageIndex = 0;
 	private uint splitID = 0;
 
+	private immutable CustomPacket sendQueue = new CustomPacket4();
+	private CustomPacket[int] recoveryQueue;
+	private int[] ACKQueue = [];
+	private int[] NACKQueue = [];
+	private int[EncapsulatedPacket][int] splitQueue;
+
 	private RakNetServer server;
 	private SystemAddress address;
 
-	this(RakNetServer server, SystemAddress address) {
+	this(RakNetServer server, shared SystemAddress address) {
 		this.server = server;
 		this.address = address;
 
