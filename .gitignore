@@ -13,7 +13,7 @@
 
 # Executables
 *.exe
-draklib
+bin/draklib
 
 # DUB
 .dub
