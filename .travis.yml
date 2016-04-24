@@ -3,4 +3,8 @@ d:
   - dmd
   - gdc
   - ldc
+os:
+  - linux
+  - osx
+
 script: dub build --compiler=${DC}
