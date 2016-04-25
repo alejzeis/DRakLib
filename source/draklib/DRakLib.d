@@ -44,11 +44,11 @@ class DRakLib {
 	public static const ubyte ACK =  0xC0;
 	public static const ubyte NACK =  0xA0;
 	
-	public static const ubyte MC_PING = 0x00;
-	public static const ubyte MC_PONG = 0x03;
+	public static const ubyte CONNECTED_PING = 0x00;
+	public static const ubyte CONNECTED_PONG = 0x03;
 	
-	public static const ubyte MC_CLIENT_CONNECT = 0x09;
-	public static const ubyte MC_SERVER_HANDSHAKE = 0x10;
-	public static const ubyte MC_CLIENT_HANDSHAKE = 0x13;
-	public static const ubyte MC_DISCONNECT_NOTIFICATION = 0x15;
+	public static const ubyte ONLINE_CONNECTION_REQUEST = 0x09;
+	public static const ubyte ONLINE_CONNECTION_REQUEST_ACCEPTED = 0x10;
+	//public static const ubyte MC_CLIENT_HANDSHAKE = 0x13;
+	public static const ubyte DISCONNECT_NOTIFICATION = 0x15;
 }

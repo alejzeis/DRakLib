@@ -28,6 +28,7 @@ class ByteStream {
 	private uint position;
 	private bool dynamic;
 	private Endian endianess;
+	private bool d = false;
 
 	private this(byte[] data, bool dynamic) {
 		this.buffer = data;
@@ -35,7 +36,7 @@ class ByteStream {
 		this.position = 0;
 	}
 
-	public static ByteStream alloc(uint size, Endian endianess = Endian.bigEndian) {
+	public static ByteStream alloc(in uint size, in Endian endianess = Endian.bigEndian) {
 		assert(size > 0);
 		
 		ByteStream stream = new ByteStream(new byte[size], false);
@@ -43,14 +44,14 @@ class ByteStream {
 		return stream;
 	}
 
-	public static ByteStream allocDyn(Endian endianness = Endian.bigEndian) {
+	public static ByteStream allocDyn(in Endian endianness = Endian.bigEndian) {
 		byte[] array = [];
 		ByteStream stream = new ByteStream(array, true);
 		stream.setEndianness(endianness);
 		return stream;
 	}
 
-	public static ByteStream wrap(byte[] data, Endian endianess = Endian.bigEndian) {
+	public static ByteStream wrap(byte[] data, in Endian endianess = Endian.bigEndian) {
 		assert(data.length > 0);
 
 		ByteStream stream = new ByteStream(data, false);
@@ -61,7 +62,7 @@ class ByteStream {
 	/**
 	 * Request "size" amount of bytes to be added to the buffer.
 	 */
-	public void allocRequest(ulong size) {
+	public void allocRequest(in ulong size) {
 		version(ARM) { //Have to cast due to 32 bit
 			this.buffer.length = this.buffer.length + cast(uint) size;
 		} else {
@@ -74,18 +75,28 @@ class ByteStream {
 	}
 
 	//Read "len" amount of bytes
-	public byte[] read(int len) {
+	public byte[] read(in int len) {
 		//assert(len > 0 && len < (getSize() - getPosition()), "Length not in bounds");
-		enforce(len > 0 && len < (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
+		enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 
-		int futurePos = getPosition() + len;
-		byte[] data = this.buffer.dup[getPosition() .. futurePos];
-		this.setPosition(futurePos);
-		return data;
+		if(d) writeln("reading " ~ to!string(len), " position ", getPosition(), " left ", getSize() - getPosition());
+
+		int oldPos = getPosition();
+		setPosition(getPosition() + len);
+		return this.buffer[oldPos .. getPosition()].dup;
+		/*
+		byte[] data = new byte[len];
+		uint offset = 0;
+		for(uint i = 0; i < len; i++) {
+			data[i] = buffer[position + offset];
+			offset++;
+		}
+				position = position + offset;
+		*/
 	}
 
 	//Write "data" to the buffer
-	public void write(byte[] data) {
+	public void write(in byte[] data) {
 		assert(data.length > 0);
 		if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException(to!string(data.length) ~ " needed but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 		else if((data.length + getPosition()) > getSize()) {
@@ -94,7 +105,7 @@ class ByteStream {
 
 		uint counter = 0;
 		for(uint i = 0; i < data.length; i++) {
-			//debug writeln("i: ", i, ", counter: ", counter, ", data: ", data, "data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
+			debug if(d) writeln("i: ", i, ", counter: ", counter, ", data: ", data, "data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
 			this.buffer[getPosition() + counter] = data[i];
 			counter++;
 		}
@@ -185,29 +196,29 @@ class ByteStream {
 	}
 
 	//Write methods
-	public void writeByte(byte b) {
+	public void writeByte(in byte b) {
 		write([b]);
 	}
 
-	public void writeUByte(ubyte b) {
+	public void writeUByte(in ubyte b) {
 		writeByte(cast(byte) b);
 	}
 
-	public void writeShort(short s) {
+	public void writeShort(in short s) {
 		write(cast(byte[]) [(s >> 8) & 0xFF,  s & 0xFF]);
 	}
 
-	public void writeUShort(ushort s) {
+	public void writeUShort(in ushort s) {
 		writeShort(cast(short) s);
 	}
 
-	public void writeUInt24_LE(uint i24) {
+	public void writeUInt24_LE(in uint i24) {
 		writeUByte(i24 & 0xFF);
 		writeUByte((i24 >> 8) & 0xFF);
 		writeUByte((i24 >> 16) & 0xFF);
 	}
 
-	public void writeInt(int i) {
+	public void writeInt(in int i) {
 		byte[4] bytes;
 		bytes[0] = cast(byte) ((i >> 24) & 0xFF);
 		bytes[1] = cast(byte) ((i >> 16) & 0xFF);
@@ -216,11 +227,11 @@ class ByteStream {
 		write(bytes);
 	}
 
-	public void writeUInt(uint i) {
+	public void writeUInt(in uint i) {
 		writeInt(cast(int) i);
 	}
 
-	public void writeLong(long l) {
+	public void writeLong(in long l) {
 		byte[8] bytes;
 		bytes[0] = cast(byte) ((l >> 56) & 0xFF);
 		bytes[1] = cast(byte) ((l >> 48) & 0xFF);
@@ -233,23 +244,23 @@ class ByteStream {
 		write(bytes);
 	}
 
-	public void writeULong(ulong l) {
+	public void writeULong(in ulong l) {
 		writeLong(cast(long) l);
 	}
 
-	public void writeStrUTF8(string s) {
+	public void writeStrUTF8(in string s) {
 		byte[] data = cast(byte[]) s;
 		writeUShort(cast(ushort) data.length);
 		write(data);
 	}
 
-	public void writeStrUTF16(wstring s) {
+	public void writeStrUTF16(in wstring s) {
 		byte[] data = cast(byte[]) s;
 		writeUShort(cast(ushort) data.length);
 		write(data);
 	}
 
-	public void writeStrUTF32(dstring s) {
+	public void writeStrUTF32(in dstring s) {
 		byte[] data = cast(byte[]) s;
 		writeUShort(cast(ushort) data.length);
 		write(data);
@@ -261,8 +272,12 @@ class ByteStream {
 	 * Skip "bytes" amount of bytes. The buffer's
 	 * position will increment by that amount.
 	 */
-	public void skip(uint bytes) {
+	public void skip(in uint bytes) {
 		setPosition(getPosition() + bytes);
+	}
+
+	public void setDebug(bool d) {
+		this.d= d;
 	}
 
 	//Getters/Setters
@@ -271,7 +286,7 @@ class ByteStream {
 		return this.position;
 	}
 
-	public void setPosition(uint position) {
+	public void setPosition(in uint position) {
 		this.position = position;
 	}
 

@@ -4,6 +4,7 @@ import std.conv;
 import std.random;
 import std.datetime;
 import std.exception;
+import std.stdio;
 import std.socket : InternetAddress, Address;
 
 import core.thread;
@@ -54,10 +55,12 @@ class RakNetServer {
 	private Logger logger;
 	private ServerOptions options;
 	private RakSocket socket;
+	private ulong currentTick;
 
 	private Session[string] sessions;
+	private ulong[string] blacklist;
 
-	this(Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
+	this(Logger logger, in ushort bindPort, in string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
 		socket = new RakSocket(bindIp, bindPort);
 		this.options = options;
 		this.logger = logger;
@@ -94,6 +97,7 @@ class RakNetServer {
 
 		StopWatch sw = StopWatch();
 		while(running) {
+			currentTick++;
 			sw.reset();
 			sw.start();
 			try {
@@ -120,6 +124,7 @@ class RakNetServer {
 		int max = options.maxPacketsPerTick;
 		if(pk.address !is null && pk.payload.length > 0 && max >0) {
 			//logger.logDebug("Packet: " ~ to!string(pk.payload));
+			//writeln(pk.payload);
 			handlePacket(pk);
 			max--;
 		}
@@ -129,6 +134,11 @@ class RakNetServer {
 	}
 
 	private void handlePacket(DatagramPacket pk) {
+		if(pk.address.toString() in blacklist) {
+			if(blacklist[pk.address.toString()] <= currentTick) {
+				blacklist.remove(pk.address.toString());
+			} else return;
+		}
 		switch(cast(ubyte) pk.payload[0]) {
 			case DRakLib.ID_CONNECTED_PING_OPEN_CONNECTIONS:
 				UnconnectedPingPacket1 upp1 = new UnconnectedPingPacket1();
@@ -158,19 +168,34 @@ class RakNetServer {
 					s = new Session(this, SystemAddress(pk.address));
 					logger.logDebug("New session from: " ~ s.getAddress().toString());
 					sessions[s.getAddress().toString()] = s;
-					logger.logDebug("New session from " ~ s.getAddress().toString());
 				}
 				s.handlePacket(pk.payload);
 				break;
 		}
 	}
 
-	package void onSessionClose(Session s, string reason = null) {
+	package void onSessionClose(Session s, in string reason = null) {
 		if(sessions[s.getAddress().toString()] is null) return;
 		sessions.remove(s.getAddress().toString());
 		if(reason !is null) {
 			logger.logDebug("Session " ~ s.getAddress().toString() ~ " closed: " ~ reason);
 		}
+	}
+
+	/// If time is zero then the address will be blacklisted until removed.
+	package void addToBlacklist(SystemAddress address, ulong time = 0) {
+		if(address.toString() in blacklist) return;
+		if(time == 0) {
+			blacklist[address.toString()] = ulong.max;
+			logger.logDebug(address.toString() ~ " added to blacklist");
+		} else {
+			blacklist[address.toString()] = currentTick + time;
+			logger.logDebug(address.toString() ~ " added to blacklist for " ~ to!string(time) ~ " ticks");
+		}
+	}
+
+	package void removeBlacklist(SystemAddress address) {
+		blacklist.remove(address.toString());
 	}
 
 	public void sendPacket(byte[] data, Address address) {

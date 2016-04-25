@@ -4,6 +4,8 @@ import draklib.DRakLib;
 import draklib.protocol.Packet;
 import draklib.util.SystemAddress;
 
+import std.stdio;
+
 class OfflineConnectionRequest1 : Packet {
 	public static const ubyte PID = DRakLib.ID_OPEN_CONNECTION_REQUEST_1;
 	public ubyte protocolVersion;
@@ -17,6 +19,7 @@ class OfflineConnectionRequest1 : Packet {
 		}
 		
 		protected void _decode(ByteStream stream) {
+			writeln(cast(ubyte[]) stream.getBuffer());
 			stream.skip(16); //MAGIC
 			protocolVersion = stream.readUByte();
 			nullPayloadLength = cast(ushort) (stream.getRemainingLength() + 18);

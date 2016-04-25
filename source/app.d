@@ -18,19 +18,19 @@ int main() {
 
 public class LoggerImpl : Logger {
 	override {
-		public void logDebug(string message) {
+		public void logDebug(in string message) {
 			writeln("[DEBUG]: " ~ message);
 		}
-		public void logInfo(string message) {
+		public void logInfo(in string message) {
 			writeln("[INFO]: " ~ message);
 		}
-		public void logWarn(string message) {
+		public void logWarn(in string message) {
 			writeln("[WARN]: " ~ message);
 		}
-		public void logError(string message) {
+		public void logError(in string message) {
 			writeln("[ERROR]: " ~ message);
 		}
-		public void logTrace(string fullTrace) {
+		public void logTrace(in string fullTrace) {
 			foreach(string segment; split(fullTrace, "\n")) {
 				writeln("[TRACE]: " ~ segment);
 			}

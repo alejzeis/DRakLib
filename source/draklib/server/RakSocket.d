@@ -21,6 +21,7 @@ module draklib.server.RakSocket;
 import draklib.util.exception;
 import std.exception;
 import std.socket;
+import std.stdio;
 
 struct DatagramPacket {
 	public byte[] payload;
@@ -33,7 +34,7 @@ class RakSocket {
 
 	private UdpSocket socket;
 
-	this(string bindAddress, ushort bindPort) {
+	this(in string bindAddress, in ushort bindPort) {
 		enforce(bindAddress.length > 0, new InvalidParameterException("Invalid IP address"));
 		enforce(bindPort > 0, new InvalidParameterException("Bind port must not be zero"));
 
@@ -59,7 +60,8 @@ class RakSocket {
 
 		auto length = this.socket.receiveFrom(payload, SocketFlags.NONE, pk.address);
 		if(length > 0) {
-			pk.payload = payload[0..length];
+			pk.payload = payload[0..length].dup;
+			//writeln(cast(ubyte[]) pk.payload);
 			return pk;
 		}
 		return DatagramPacket();

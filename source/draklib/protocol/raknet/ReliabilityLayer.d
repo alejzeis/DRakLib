@@ -3,6 +3,7 @@ import draklib.ByteStream;
 import draklib.DRakLib;
 import draklib.protocol.Packet;
 
+import std.stdio : writeln;
 import std.math : ceil;
 
 Reliability lookupReliability(byte reliability) {
@@ -38,7 +39,7 @@ enum Reliability {
 	RELIABLE_ORDERED_WITH_ACK_RECEIPT = 7,
 }
 
-class EncapsulatedPacket {
+class EncapsulatedPacket : Packet{
 	public byte reliability;
 	public bool split = false;
 	public int messageIndex = -1;
@@ -49,59 +50,74 @@ class EncapsulatedPacket {
 	public uint splitIndex;
 	public byte[] buffer;
 
-	public void encode(ByteStream stream) {
-		stream.writeByte(cast(byte) ((reliability << 5) | (split ? 0b00010000 : 0)));
-		stream.writeUShort(cast(ushort) (buffer.length * 8));
-		switch(reliability) {
-			case Reliability.RELIABLE:
-			case Reliability.RELIABLE_SEQUENCED:
-			case Reliability.RELIABLE_ORDERED:
-				stream.writeUInt24_LE(messageIndex);
-				goto case;
-			case Reliability.UNRELIABLE_SEQUENCED:
-				stream.writeUInt24_LE(orderIndex);
-				stream.writeByte(orderChannel);
-				break;
-			default:
-				break;
+	override {
+		protected void _encode(ByteStream stream) {
+			stream.writeByte(cast(byte) ((reliability << 5) | (split ? 0b00010000 : 0)));
+			stream.writeUShort(cast(ushort) (buffer.length * 8));
+			switch(reliability) {
+				case Reliability.RELIABLE:
+				case Reliability.RELIABLE_SEQUENCED:
+				case Reliability.RELIABLE_ORDERED:
+					stream.writeUInt24_LE(messageIndex);
+					goto case;
+				case Reliability.UNRELIABLE_SEQUENCED:
+					stream.writeUInt24_LE(orderIndex);
+					stream.writeByte(orderChannel);
+					break;
+				default:
+					break;
+			}
+			if(split) {
+				stream.writeUInt(splitCount);
+				stream.writeUShort(splitID);
+				stream.writeUInt(splitIndex);
+			}
+			stream.write(buffer);
 		}
-		if(split) {
-			stream.writeUInt(splitCount);
-			stream.writeUShort(splitID);
-			stream.writeUInt(splitIndex);
-		}
-		stream.write(buffer);
-	}
 
-	public void decode(ByteStream stream) {
-		byte header = stream.readByte();
-		reliability = (header & 0b11100000) >> 5;
-		split = (header & 0b00010000) > 0;
-
-		ushort len = cast(ushort) ceil(cast(float) stream.readUShort() / 8);
-		switch(reliability) {
-			case Reliability.RELIABLE:
-			case Reliability.RELIABLE_SEQUENCED:
-			case Reliability.RELIABLE_ORDERED:
-				messageIndex = stream.readUInt24_LE();
-				goto case;
-			case Reliability.UNRELIABLE_SEQUENCED:
-				orderIndex = stream.readUInt24_LE();
-				orderChannel = stream.readByte();
-				break;
-			default:
-				break;
+		protected void _decode(ByteStream stream) {
+			stream.setDebug(true);
+			ubyte header = stream.readUByte();
+			writeln(cast(ubyte[]) stream.getBuffer());
+			reliability = (header & 0b11100000) >> 5;
+			split = (header & 0b00010000) > 0;
+			writeln(reliability, " ", split);
+			
+			debug {
+				ushort original = stream.readUShort();
+				ushort div = original / 8;
+				ushort len = cast(ushort) ceil(cast(float) div);
+				writeln(original, " ", div, " ", len, " ", stream.getEndianess());
+			} else ushort len = cast(ushort) ceil(cast(float) stream.readUShort() / 8);
+			switch(reliability) {
+				case Reliability.RELIABLE:
+				case Reliability.RELIABLE_SEQUENCED:
+				case Reliability.RELIABLE_ORDERED:
+					messageIndex = stream.readUInt24_LE();
+					goto default;
+				case Reliability.UNRELIABLE_SEQUENCED:
+					writeln("reading");
+					orderIndex = stream.readUInt24_LE();
+					orderChannel = stream.readByte();
+					break;
+				default:
+					break;
+			}
+			if(split) {
+				splitCount = stream.readUInt();
+				splitID = stream.readUShort();
+				splitIndex = stream.readUInt();
+			}
+			buffer = stream.read(len);
 		}
-		if(split) {
-			splitCount = stream.readUInt();
-			splitID = stream.readUShort();
-			splitIndex = stream.readUInt();
-		}
-		buffer = stream.read(len);
-	}
 
-	public ulong getLength() {
-		return (3 + (messageIndex != -1 ? 3 : 0) + (orderIndex != -1 && orderChannel != -1 ? 4 :0) + (split ? 10 : 0) + buffer.length);
+		public ubyte getID() {
+			return 0;
+		}
+
+		public ulong getLength() {
+			return (3 + (messageIndex != -1 ? 3 : 0) + (orderIndex != -1 && orderChannel != -1 ? 4 :0) + (split ? 10 : 0) + buffer.length);
+		}
 	}
 
 }
@@ -114,7 +130,7 @@ abstract class CustomPacket : Packet {
 		protected void  _encode(ByteStream stream) {
 			stream.writeUInt24_LE(sequenceNumber);
 			foreach(EncapsulatedPacket pk; packets) {
-				pk.encode(stream);
+				pk._encode(stream);
 			}
 		}
 		
@@ -122,8 +138,9 @@ abstract class CustomPacket : Packet {
 			sequenceNumber = stream.readUInt24_LE();
 			packets = [];
 			while(stream.getRemainingLength() > 0) {
+				writeln(cast(ubyte[]) stream.getBuffer());
 				EncapsulatedPacket pk = new EncapsulatedPacket();
-				pk.decode(stream);
+				pk._decode(stream);
 				packets ~= pk;
 			}
 		}
