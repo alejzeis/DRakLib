@@ -1,16 +1,22 @@
 ﻿module draklib.bytestream;
 
 import std.stdio;
-import std.conv;
+import std.conv : to;
+import std.algorithm.mutation : reverse;
 import std.exception;
 import std.system;
 
+/**
+ * Class that allows simple reading and writing of high
+ * level types such as integers and strings to/from bytes.
+ * 
+ * Authors: jython234
+ */ 
 class ByteStream {
 	private byte[] buffer;
 	private uint position;
 	private bool dynamic;
 	private Endian endianess;
-	private bool d = false;
 
 	private this(byte[] data, bool dynamic) {
 		this.buffer = data;
@@ -42,8 +48,8 @@ class ByteStream {
 	}
 
 	/**
-	* Request "size" amount of bytes to be added to the buffer.
-	*/
+	 * Request "size" amount of bytes to be added to the buffer.
+	 */
 	void allocRequest(in ulong size) {
 		version(ARM) { //Have to cast due to 32 bit
 			this.buffer.length = this.buffer.length + cast(uint) size;
@@ -183,6 +189,7 @@ class ByteStream {
 				break;
 			default:
 				break;
+		}
 	}
 
 	void writeUShort(in ushort s) {
@@ -194,21 +201,17 @@ class ByteStream {
 	}
 
 	void writeInt(in int i) {
-		byte[4] bytes;
+		byte[] bytes;
+		bytes.length = 4;
 		bytes[0] = cast(byte) ((i >> 24) & 0xFF);
 		bytes[1] = cast(byte) ((i >> 16) & 0xFF);
 		bytes[2] = cast(byte) ((i >> 8) & 0xFF);
 		bytes[3] = cast(byte) (i & 0xFF);
-		switch(getEndianess()) {
-			case Endian.bigEndian:
-				write(bytes);
-				break;
-			case Endian.littleEndian:
-				write(bytes.reverse());
-				break;
-			default:
-				break;
-		}
+
+		if(getEndianess() == Endian.littleEndian) 
+			reverse(bytes);
+
+		write(bytes);
 	}
 
 	void writeUInt(in uint i) {
@@ -216,7 +219,8 @@ class ByteStream {
 	}
 
 	void writeLong(in long l) {
-		byte[8] bytes;
+		byte[] bytes;
+		bytes.length = 8;
 		bytes[0] = cast(byte) ((l >> 56) & 0xFF);
 		bytes[1] = cast(byte) ((l >> 48) & 0xFF);
 		bytes[2] = cast(byte) ((l >> 40) & 0xFF);
@@ -225,16 +229,11 @@ class ByteStream {
 		bytes[5] = cast(byte) ((l >> 16) & 0xFF);
 		bytes[6] = cast(byte) ((l >> 8) & 0xFF);
 		bytes[7] = cast(byte) (l & 0xFF);
-		switch(getEndianess()) {
-			case Endian.bigEndian:
-				write(bytes);
-				break;
-			case Endian.littleEndian:
-				write(bytes.reverse());
-				break;
-			default:
-				break;
-		}
+
+		if(getEndianess() == Endian.littleEndian) 
+			reverse(bytes);
+
+		write(bytes);
 	}
 
 	void writeULong(in ulong l) {
@@ -242,9 +241,9 @@ class ByteStream {
 	}
 
 	void writeStrUTF8(in string s) {
-	byte[] data = cast(byte[]) s;
-	writeUShort(cast(ushort) data.length);
-	write(data);
+		byte[] data = cast(byte[]) s;
+		writeUShort(cast(ushort) data.length);
+		write(data);
 	}
 
 	//Util methods
@@ -255,6 +254,12 @@ class ByteStream {
 	*/
 	void skip(in uint bytes) {
 		setPosition(getPosition() + bytes);
+	}
+	
+	void clear() {
+		buffer = null;
+		position = 0;
+
 	}
 
 	//Getters/Setters

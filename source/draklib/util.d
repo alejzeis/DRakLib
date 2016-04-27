@@ -1,5 +1,4 @@
 ﻿module draklib.util;
-import draklib.core;
 
 /**
  * Get the current time in milliseconds (since epoch).
