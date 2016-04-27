@@ -1,4 +1,5 @@
 ﻿module draklib.util;
+import std.exception;
 
 /**
  * Get the current time in milliseconds (since epoch).
@@ -42,4 +43,14 @@ byte[][] splitByteArray(byte[] array, in uint chunkSize) {
 	}
 	
 	return splits;
+}
+
+class NotImplementedException : Exception {
+	this() {
+		super("Not implemented!");
+	}
+
+	this(string message) {
+		super(message);
+	}
 }

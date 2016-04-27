@@ -102,6 +102,10 @@ class ByteStream {
 		this.setPosition(getPosition() + counter);
 	}
 
+	void writeU(in ubyte[] data) {
+		write(cast(byte[]) data);
+	}
+
 	//Read Methods
 
 	byte readByte() {
@@ -284,7 +288,7 @@ class ByteStream {
 		return this.endianess;
 	}
 
-	void setEndianness(Endian endianess) {
+	void setEndianness(in Endian endianess) {
 		this.endianess = endianess;
 	}
 
