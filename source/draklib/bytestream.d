@@ -174,6 +174,19 @@ class ByteStream {
 		return cast(string) (cast(ubyte[]) read(len));
 	}
 
+	void readSysAddress(ref string ip, ref ushort port) {
+		ubyte version_ = readUByte();
+		switch(version_) {
+			case 4:
+				ubyte[] addressBytes = readU(4);
+				ip = to!string(~addressBytes[0]) ~ "." ~ to!string(~addressBytes[1]) ~ "." ~ to!string(~addressBytes[2]) ~ "." ~ to!string(~addressBytes[3]);
+				port = readUShort();
+				break;
+			default:
+				throw new DecodeException("Invalid IP version: " ~ to!string(version_));
+		}
+	}
+
 	//Write methods
 	void writeByte(in byte b) {
 		write([b]);
@@ -250,6 +263,18 @@ class ByteStream {
 		write(data);
 	}
 
+	void writeSysAddress(in string ip, in ushort port, in ubyte version_ = 4) {
+		enforce(version_ == 4, new EncodeException("Invalid IP version: " ~ to!string(version_)));
+
+		import std.array;
+
+		writeUByte(version_);
+		foreach(s; split(ip, ".")) {
+			writeUByte(~to!ubyte(s));
+		}
+		writeUShort(port);
+	}
+
 	//Util methods
 
 	/**
@@ -302,6 +327,18 @@ class OutOfBoundsException : Exception {
 		super("Data is out of bounds");
 	}
 	
+	this(string msg) {
+		super(msg);
+	}
+}
+
+class EncodeException : Exception {
+	this(string msg) {
+		super(msg);
+	}
+}
+
+class DecodeException : Exception {
 	this(string msg) {
 		super(msg);
 	}
