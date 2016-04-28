@@ -3,7 +3,7 @@ import draklib.bytestream;
 import draklib.util : NotImplementedException;
 
 abstract class Packet {
-	public final void encode(out byte[] data) {
+	final void encode(out byte[] data) {
 		ByteStream stream = ByteStream.alloc(getSize());
 		stream.writeUByte(getID());
 		_encode(stream);
@@ -11,7 +11,7 @@ abstract class Packet {
 		stream.clear();
 	}
 
-	public final void decode(byte[] data) {
+	final void decode(byte[] data) {
 		ByteStream stream = ByteStream.wrap(data);
 		stream.skip(1); // ID
 		_decode(stream);
@@ -25,6 +25,6 @@ abstract class Packet {
 		throw new NotImplementedException("Decoding has not been implemented by underlying class.");
 	}
 
-	public abstract uint getSize();
-	public abstract ubyte getID();
+	abstract uint getSize();
+	abstract ubyte getID();
 }

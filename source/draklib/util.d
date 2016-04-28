@@ -8,6 +8,7 @@ import std.exception;
  */
 long getTimeMillis() {
 	version(Posix) {
+		pragma(msg, "Using gettimeofday() for native getTimeMillis()");
 		//import core.sys.linux.time; //Does not seem to work
 		import std.c.linux.linux;
 		
@@ -16,6 +17,7 @@ long getTimeMillis() {
 		
 		return t.tv_sec * 1000 + t.tv_usec / 1000;
 	} version(Windows) {
+		pragma(msg, "Using GetSystemTime() for native getTimeMillis()");
 		import core.sys.windows.winbase;
 		
 		SYSTEMTIME time;
@@ -50,6 +52,12 @@ class NotImplementedException : Exception {
 		super("Not implemented!");
 	}
 
+	this(string message) {
+		super(message);
+	}
+}
+
+class InvalidOperationException : Exception {
 	this(string message) {
 		super(message);
 	}

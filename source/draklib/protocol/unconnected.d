@@ -4,7 +4,7 @@ import draklib.bytestream : ByteStream;
 import draklib.protocol.packet;
 
 class UnconnectedPingPacket1 : Packet {
-	public long time;
+	long time;
 
 	override {
 		protected void _encode(ByteStream stream) {
@@ -17,11 +17,11 @@ class UnconnectedPingPacket1 : Packet {
 			// MAGIC
 		}
 
-		public ubyte getID() {
+		ubyte getID() {
 			return RakNetInfo.UNCONNECTED_PING_1;
 		}
 
-		public uint getSize() {
+		uint getSize() {
 			return 25;
 		}
 	}
@@ -29,16 +29,16 @@ class UnconnectedPingPacket1 : Packet {
 
 class UnconnectedPingPacket2 : UnconnectedPingPacket1 {
 	override {
-		public ubyte getID() {
+		ubyte getID() {
 			return RakNetInfo.UNCONNECTED_PING_2;
 		}
 	}
 }
 
 class UnconnectedPongPacket : Packet {
-	public long time;
-	public long serverGUID;
-	public string serverInfo;
+	long time;
+	long serverGUID;
+	string serverInfo;
 	
 	override {
 		protected void _encode(ByteStream stream) {
@@ -55,11 +55,11 @@ class UnconnectedPongPacket : Packet {
 			serverInfo = stream.readStrUTF8();
 		}
 
-		public ubyte getID() {
+		ubyte getID() {
 			return RakNetInfo.UNCONNECTED_PONG;
 		}
 		
-		public uint getSize() {
+		uint getSize() {
 			return cast(uint) (35 + (cast(byte[]) serverInfo).length);
 		}
 	}
@@ -67,7 +67,7 @@ class UnconnectedPongPacket : Packet {
 
 class AdvertiseSystemPacket : UnconnectedPongPacket {
 	override {
-		public ubyte getID() {
+		ubyte getID() {
 			return RakNetInfo.ADVERTISE_SYSTEM;
 		}
 	}

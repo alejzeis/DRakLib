@@ -1,9 +1,9 @@
 ﻿module draklib.logging;
 
 interface Logger {
-	public void logDebug(string message);
-	public void logInfo(string message);
-	public void logWarn(string message);
-	public void logError(string message);
-	public void logTrace(string trace);
+	const void logDebug(in string message);
+	const void logInfo(in string message);
+	const void logWarn(in string message);
+	const void logError(in string message);
+	const void logTrace(in string trace);
 }
