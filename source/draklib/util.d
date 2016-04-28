@@ -10,7 +10,7 @@ long getTimeMillis() {
 	version(Posix) {
 		pragma(msg, "Using gettimeofday() for native getTimeMillis()");
 		//import core.sys.linux.time; //Does not seem to work
-		import std.c.linux.linux;
+		import core.sys.posix.sys.time;
 		
 		timeval t;
 		gettimeofday(&t, null);
