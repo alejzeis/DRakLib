@@ -185,7 +185,6 @@ class ContainerPacket : Packet {
 
 		protected void _encode(ref ByteStream stream) {
 			stream.writeUInt24_LE(sequenceNumber);
-			std.stdio.writeln("1current buffer ", cast(ubyte[]) stream.getBuffer());
 			foreach(packet; packets) {
 				packet._encode(stream);
 			}
@@ -204,6 +203,7 @@ class ContainerPacket : Packet {
 					debug {
 						import std.stdio;
 						writeln("WARNING: OutofBoundsException while processing ContainerPacket!");
+						throw e;
 					}
 				}
 			}
@@ -236,7 +236,6 @@ class EncapsulatedPacket : Packet {
 
 	override {
 		protected void _encode(ref ByteStream stream) {
-			import std.stdio;
 			stream.writeByte(cast(byte) ((reliability << 5) | (split ? 0b00010000 : 0)));
 			stream.writeUShort(cast(ushort) (payload.length * 8));
 			if(reliability > 0) {
@@ -253,11 +252,7 @@ class EncapsulatedPacket : Packet {
 				stream.writeUShort(splitID);
 				stream.writeUInt(splitIndex);
 			}
-
-			debug {
-				writeln("2current buffer ", cast(ubyte[]) stream.getBuffer());
-				writeln("writing ", payload.length, " to ", stream.getRemainingLength(), " out of ", stream.getSize());
-			}
+			
 			stream.write(payload);
 		}
 		

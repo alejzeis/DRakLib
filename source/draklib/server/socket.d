@@ -15,12 +15,12 @@ class ServerSocket {
 		bindAddress = new InternetAddress(bindInterface, bindPort);
 	}
 
-	void bind(uint sendBufferSize = 4096, uint recvBufferSize = 4096) {
+	void bind(uint sendBufferSize = 1024 * 1024, uint recvBufferSize = 1024 * 1024) {
 		socket.bind(bindAddress);
 
 		socket.setOption(SocketOptionLevel.SOCKET, SocketOption.BROADCAST, true);
-		socket.setOption(SocketOptionLevel.SOCKET, SocketOption.SNDBUF, sendBufferSize);
-		socket.setOption(SocketOptionLevel.SOCKET, SocketOption.RCVBUF, recvBufferSize);
+		//socket.setOption(SocketOptionLevel.SOCKET, SocketOption.SNDBUF, sendBufferSize);
+		//socket.setOption(SocketOptionLevel.SOCKET, SocketOption.RCVBUF, recvBufferSize);
 		socket.blocking = false;
 	}
 
@@ -28,7 +28,7 @@ class ServerSocket {
 		auto length = socket.receiveFrom(buffer, SocketFlags.NONE, address);
 		if(length > 0) {
 			buffer.length = length;
-			debug logger.logDebug("Packet IN: " ~ to!string(buffer));
+			debug logger.logDebug(to!string(length) ~ " Packet IN: " ~ to!string(cast(ubyte[]) buffer));
 			return true;
 		}
 		buffer = null;
@@ -37,7 +37,7 @@ class ServerSocket {
 
 	void send(Address address, in byte[] buffer) {
 		socket.sendTo(buffer, SocketFlags.NONE, address);
-		debug logger.logDebug("Packet OUT: " ~ to!string(buffer));
+		debug logger.logDebug("Packet OUT: " ~ to!string(cast(ubyte[]) buffer));
 	}
 
 	void close() {

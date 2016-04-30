@@ -8,7 +8,8 @@ import draklib.server.raknetserver;
 
 int main() {
 	ServerOptions options = ServerOptions();
-	options.serverIdent = "MCPE;A DRakLib Server!;46;0.14.1;0;0";
+	options.serverIdent = "MCPE;A DRakLib Server!;60;0.14.2;0;0";
+	//options.serverIdent = "MCCPP;MINECON;A DRakLib Server";
 
 	RakNetServer server = new RakNetServer(thisTid(), new LoggerImpl(), 19132, "0.0.0.0", options);
 	server.start();

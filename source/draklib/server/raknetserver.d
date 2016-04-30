@@ -101,7 +101,7 @@ class RakNetServer {
 	private void doTick() {
 		uint max = 500;
 		Address a;
-		byte[] data = new byte[2048];
+		byte[] data = new byte[1024 * 1024];
 		while(max-- > 0 && socket.recv(a, data)) {
 			handlePacket(a, data);
 		}
@@ -130,7 +130,8 @@ class RakNetServer {
 				UnconnectedPingPacket2 ping2 = new UnconnectedPingPacket2();
 				ping2.decode(data);
 
-				AdvertiseSystemPacket pong2 = new AdvertiseSystemPacket();
+				//AdvertiseSystemPacket pong2 = new AdvertiseSystemPacket();
+				UnconnectedPongPacket pong2 = new UnconnectedPongPacket();
 				pong2.serverGUID = options.serverGUID;
 				pong2.serverInfo = options.serverIdent;
 				pong2.time = ping2.time;
@@ -151,6 +152,7 @@ class RakNetServer {
 					logger.logDebug("Session " ~ session.getIdentifier() ~ " created");
 					sessions[session.getIdentifier()] = session;
 				}
+				logger.logDebug("LI: " ~ to!string(cast(ubyte[]) data));
 				session.handlePacket(data);
 				break;
 		}

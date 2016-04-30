@@ -265,8 +265,8 @@ class Session {
 				}
 				break;
 			default:
+				server.logger.logDebug("LI2: " ~ to!string(cast(ubyte[]) packet));
 				if(cast(ubyte) (packet[0]) >= 0x80 && cast(ubyte) (packet[0]) <= 0x8F) {
-					debug server.logger.logDebug("Handling custom packet");
 					ContainerPacket cp = new ContainerPacket();
 					cp.decode(packet);
 					handleContainerPacket(cp);
