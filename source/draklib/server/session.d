@@ -7,6 +7,8 @@ import draklib.protocol.offline;
 import draklib.protocol.reliability;
 import draklib.protocol.online;
 
+import std.conv;
+
 enum SessionState {
 	DISCONNECTED = 0,
 	OFFLINE_1 = 1,
@@ -66,7 +68,9 @@ class Session {
 				foreach(uint num; ACKQueue.keys) {
 					ack.nums ~= num;
 				}
-				sendRaw(ack.encode());
+				byte[] data;
+				ack.encode(data);
+				sendRaw(data);
 				version(DigitalMars) ACKQueue.clear();
 				else {
 					ACKQueue = [0 : true];
@@ -79,7 +83,9 @@ class Session {
 				foreach(uint num; NACKQueue.keys) {
 					nack.nums ~= num;
 				}
-				sendRaw(nack.encode());
+				byte[] data;
+				nack.encode(data);
+				sendRaw(data);
 				version(DigitalMars) NACKQueue.clear();
 				else {
 					NACKQueue = [0 : true];
@@ -94,7 +100,9 @@ class Session {
 	private void sendQueuedPackets() {
 		if(sendQueue.packets.length > 0) {
 			sendQueue.sequenceNumber = sendSeqNum++;
-			sendRaw(sendQueue.encode());
+			byte[] data;
+			sendQueue.encode(data);
+			sendRaw(data);
 			recoveryQueue[sendQueue.sequenceNumber] = sendQueue;
 			debug server.logger.logDebug("1Queue now has " ~ to!string(recoveryQueue[sendQueue.sequenceNumber].packets.length));
 			sendQueue.packets = [];
@@ -130,7 +138,7 @@ class Session {
 				break;
 		}
 		
-		if(pk.getLength() + 4 > mtu) { //4 is overhead for CustomPacket header
+		if(pk.getSize() + 4 > mtu) { //4 is overhead for CustomPacket header
 			//Packet is too big, needs to be split
 			byte[][] buffers = splitByteArray(pk.payload, mtu - 34);
 			ushort splitID = this.splitID++;
@@ -167,80 +175,91 @@ class Session {
 			cp.packets = cast(EncapsulatedPacket[]) [];
 			cp.packets ~= pkt;
 			cp.sequenceNumber = sendSeqNum++;
-			sendRaw(cp.encode());
+			byte[] data;
+			cp.encode(data);
+			sendRaw(data);
 			
 			recoveryQueue[cp.sequenceNumber] = cp;
 		} else {
-			if((sendQueue.getLength() + pkt.getLength()) > mtu) {
+			if((sendQueue.getSize() + pkt.getSize()) > mtu) {
 				sendQueuedPackets();
 			}
 			sendQueue.packets ~= pkt;
 		}
 	}
 	
-	public void sendRaw(byte[] data) {
-		server.sendPacket(data, address);
+	public void sendRaw(in byte[] data) {
+		import std.socket : InternetAddress;
+		server.sendPacket(new InternetAddress(ip, port), data);
 	}
 	
 	package void handlePacket(byte[] packet) {
-		if(state == DISCONNECTED) return;
+		if(state == SessionState.DISCONNECTED) return;
 
 		timeLastPacketReceived = getTimeMillis();
+		byte[] data;
 		switch(cast(ubyte) packet[0]) {
 			// Non - Reliable Packets
-			case DRakLib.ID_OPEN_CONNECTION_REQUEST_1:
-				if(state != OFFLINE_1) return;
+			case RakNetInfo.OFFLINE_CONNECTION_REQUEST_1:
+				if(state != SessionState.OFFLINE_1) return;
 				OfflineConnectionRequest1 req1 = new OfflineConnectionRequest1();
-				writeln(cast(ubyte[]) packet);
 				req1.decode(packet);
-				mtu = req1.nullPayloadLength;
+				mtu = req1.mtuSize;
 				
 				debug server.logger.logDebug("MTU: " ~ to!string(mtu));
 				
 				OfflineConnectionResponse1 res1 = new OfflineConnectionResponse1();
 				res1.serverGUID = server.options.serverGUID;
 				res1.mtu = mtu;
-				sendRaw(res1.encode());
+
+				res1.encode(data);
+				sendRaw(data);
 				
-				state = OFFLINE_2;
+				state = SessionState.OFFLINE_2;
 				debug server.logger.logDebug("Enter state OFFLINE_2");
 				break;
-			case DRakLib.ID_OPEN_CONNECTION_REQUEST_2:
-				if(state != OFFLINE_2) break;
+			case RakNetInfo.OFFLINE_CONNECTION_REQUEST_2:
+				if(state != SessionState.OFFLINE_2) break;
 				OfflineConnectionRequest2 req2 = new OfflineConnectionRequest2();
 				req2.decode(packet);
-				clientGUID = req2.clientID;
+				clientGUID = req2.clientGUID;
 				
 				OfflineConnectionResponse2 res2 = new OfflineConnectionResponse2();
 				res2.serverGUID = server.options.serverGUID;
-				res2.clientAddress = address;
+				res2.clientAddress = ip;
+				res2.clientPort = port;
 				res2.mtu = mtu;
 				res2.encryptionEnabled = false; // RakNet encryption not implemented
-				sendRaw(res2.encode());
+
+				res2.encode(data);
+				sendRaw(data);
 				
-				state = ONLINE_HANDSHAKE;
-				debug server.serverGUID.logDebug("Enter state ONLINE_HANDSHAKE");
+				state = SessionState.ONLINE_HANDSHAKE;
+				debug server.logger.logDebug("Enter state ONLINE_HANDSHAKE");
 				break;
 				// ACK/NACK
-			case DRakLib.ACK:
+			case RakNetInfo.ACK:
 				ACKPacket ack = new ACKPacket();
 				ack.decode(packet);
 				
-				foreach(uint num; ack.packets) {
+				foreach(uint num; ack.nums) {
 					if(num in recoveryQueue) {
 						recoveryQueue.remove(num);
 					}
 				}
 				break;
-			case DRakLib.NACK:
+			case RakNetInfo.NACK:
 				NACKPacket nack = new NACKPacket();
 				nack.decode(packet);
 				
-				foreach(uint num; nack.packets) {
+				foreach(uint num; nack.nums) {
 					if(num in recoveryQueue) {
-						CustomPacket cp = recoveryQueue[num];
+						ContainerPacket cp = recoveryQueue[num];
 						cp.sequenceNumber = sendSeqNum++;
-						sendRaw(cp.encode());
+
+						cp.encode(data);
+						sendRaw(data);
+
 						recoveryQueue.remove(num);
 					} else debug server.logger.logWarn("NACK " ~ to!string(num) ~ " not found in recovery queue");
 				}
@@ -284,7 +303,7 @@ class Session {
 		
 		if(!(pk.splitID in splitQueue)) {
 			if(splitQueue.length >= MAX_SPLIT_COUNT) {
-				debug server.getLogger.logWarn("Skipped split Encapsulated: too many in queue (" ~ to!string(splitQueue.length) ~ ")");
+				debug server.logger.logWarn("Skipped split Encapsulated: too many in queue (" ~ to!string(splitQueue.length) ~ ")");
 				return;
 			}
 			EncapsulatedPacket[int] m;
@@ -301,12 +320,12 @@ class Session {
 			ByteStream bs = ByteStream.alloc(1024 * 1024);
 			auto packets = splitQueue[pk.splitID];
 			foreach(EncapsulatedPacket packet; packets) {
-				bs.write(packet.buffer);
+				bs.write(packet.payload);
 			}
 			
 			splitQueue.remove(pk.splitID);
 			
-			ep.buffer = bs.getBuffer()[0..bs.getPosition()].dup;
+			ep.payload = bs.getBuffer()[0..bs.getPosition()].dup;
 			bs = null;
 			
 			handleEncapsulatedPacket(ep);
@@ -314,30 +333,32 @@ class Session {
 	}
 	
 	private void handleEncapsulatedPacket(EncapsulatedPacket pk) {
-		if(!(state == ONLINE_CONNECTED || state == ONLINE_HANDSHAKE)) {
+		assert(pk.payload.length > 0);
+		if(!(state == SessionState.ONLINE_CONNECTED || state == SessionState.ONLINE_HANDSHAKE)) {
 			debug server.logger.logWarn("Skipped Encapsulated: not in right state (" ~ to!string(state) ~ ")");
 			return;
 		}
-		if(pk.split && state == ONLINE_CONNECTED) {
+		if(pk.split && state == SessionState.ONLINE_CONNECTED) {
 			handleSplitPacket(pk);
 		} else debug server.logger.logWarn("Skipped split Encapsulated: not in right state (" ~ to!string(state) ~ ")");
 		
-		switch(cast(ubyte) pk.buffer[0]) {
-			case DRakLib.DISCONNECT_NOTIFICATION:
+		switch(cast(ubyte) pk.payload[0]) {
+			case RakNetInfo.DISCONNECT_NOTIFICATION:
 				disconnect("client disconnected");
 				break;
-			case DRakLib.ONLINE_CONNECTION_REQUEST:
+			case RakNetInfo.ONLINE_CONNECTION_REQUEST:
 				OnlineConnectionRequest ocr = new OnlineConnectionRequest();
-				ocr.decode(pk.buffer);
+				ocr.decode(pk.payload);
 				
 				OnlineConnectionRequestAccepted ocra = new OnlineConnectionRequestAccepted();
-				ocra.clientAddress = address;
+				ocra.clientAddress = ip;
+				ocra.clientPort = port;
 				ocra.requestTime = ocr.time;
 				ocra.time = ocr.time + 1000L;
 				
 				EncapsulatedPacket ep = new EncapsulatedPacket();
 				ep.reliability = Reliability.UNRELIABLE;
-				ep.buffer = ocra.encode();
+				ocra.encode(ep.payload);
 				addToQueue(ep, true);
 				break;
 			default:
@@ -349,12 +370,12 @@ class Session {
 	public void disconnect(in string reason = null) {
 		EncapsulatedPacket ep = new EncapsulatedPacket();
 		ep.reliability = Reliability.UNRELIABLE;
-		ep.buffer = cast(byte[]) [0x15];
+		ep.payload = cast(byte[]) [0x15];
 		addToQueue(ep, true);
 		
-		server.addToBlacklist(address, 30);
+		//server.addToBlacklist(address, 30);
 		
-		state = DISCONNECTED;
+		state = SessionState.DISCONNECTED;
 		
 		server.onSessionClose(this, reason);
 	}
@@ -369,5 +390,9 @@ class Session {
 
 	public ushort getPort() {
 		return port;
+	}
+
+	public string getIdentifier() {
+		return ip ~ ":" ~ to!string(port);
 	}
 }

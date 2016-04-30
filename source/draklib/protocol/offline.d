@@ -57,7 +57,7 @@ class OfflineConnectionResponse1 : Packet {
 	}
 }
 
-class OfflineConnectionRequeset2 : Packet {
+class OfflineConnectionRequest2 : Packet {
 	string serverAddress;
 	ushort serverPort;
 	ushort mtu;
@@ -93,7 +93,7 @@ class OfflineConnectionResponse2 : Packet {
 	string clientAddress;
 	ushort clientPort;
 	ushort mtu;
-	byte encryptionEnabled = 0; //0 Disabled, 1 Enabled
+	bool encryptionEnabled;
 	
 	override {
 		protected void _encode(ByteStream stream) {
@@ -101,7 +101,7 @@ class OfflineConnectionResponse2 : Packet {
 			stream.writeLong(serverGUID);
 			stream.writeSysAddress(clientAddress, clientPort);
 			stream.writeUShort(mtu);
-			stream.writeByte(encryptionEnabled);
+			stream.writeByte(encryptionEnabled ? 1 : 0);
 		}
 		
 		protected void _decode(ByteStream stream) {
@@ -109,7 +109,7 @@ class OfflineConnectionResponse2 : Packet {
 			serverGUID = stream.readLong();
 			stream.readSysAddress(clientAddress, clientPort);
 			mtu = stream.readUShort();
-			encryptionEnabled = stream.readByte();
+			encryptionEnabled = stream.readByte() > 0;
 		}
 		
 		ubyte getID() {

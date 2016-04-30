@@ -128,11 +128,29 @@ class RakNetServer {
 				break;
 
 			default:
+				Session session;
+				if(!(address.toString() in sessions)) {
+					import std.array;
+					string ip = split(address.toString(), ":")[0];
+					ushort port = to!ushort(split(address.toString(), ":")[1]);
+
+					session = new Session(this, ip, port);
+					sessions[session.getIdentifier()] = session;
+				}
+				session.handlePacket(data);
 				break;
 		}
 	}
 
 	package void sendPacket(Address sendTo, in byte[] data) {
 		socket.send(sendTo, data);
+	}
+
+	package void onSessionClose(Session session, in string reason = null) {
+		if(!(session.getIdentifier() in sessions)) return;
+		sessions.remove(session.getIdentifier());
+		if(reason !is null) {
+			logger.logDebug("Session " ~ session.getIdentifier() ~ " closed: " ~ reason);
+		}
 	}
 }
