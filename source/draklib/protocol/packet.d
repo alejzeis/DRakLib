@@ -3,7 +3,7 @@ import draklib.bytestream;
 import draklib.util : NotImplementedException;
 
 abstract class Packet {
-	final void encode(out byte[] data) {
+	void encode(out byte[] data) {
 		ByteStream stream = ByteStream.alloc(getSize());
 		stream.writeUByte(getID());
 		_encode(stream);
@@ -11,7 +11,7 @@ abstract class Packet {
 		stream.clear();
 	}
 
-	final void decode(byte[] data) {
+	void decode(byte[] data) {
 		ByteStream stream = ByteStream.wrap(data);
 		stream.skip(1); // ID
 		_decode(stream);
