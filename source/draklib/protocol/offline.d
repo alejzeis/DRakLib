@@ -8,13 +8,13 @@ class OfflineConnectionRequest1 : Packet {
 	ushort mtuSize;
 
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeUByte(protocolVersion);
 			stream.write(new byte[mtuSize + 18]);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
 			protocolVersion = stream.readUByte();
 			mtuSize = cast(ushort) (stream.getRemainingLength() - 18);
@@ -35,13 +35,13 @@ class OfflineConnectionResponse1 : Packet {
 	ushort mtu;
 	
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeLong(serverGUID);
 			stream.writeUShort(mtu);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
 			serverGUID = stream.readLong();
 			mtu = stream.readUShort();
@@ -64,15 +64,19 @@ class OfflineConnectionRequest2 : Packet {
 	long clientGUID;
 	
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeSysAddress(serverAddress, serverPort);
 			stream.writeUShort(mtu);
 			stream.writeLong(clientGUID);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
+			import std.stdio;
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
+			if(stream.getSize() != 34) { //Strange extra nullbytes
+				stream.skip(5);
+			}
 			stream.readSysAddress(serverAddress, serverPort);
 			mtu = stream.readUShort();
 			clientGUID = stream.readLong();
@@ -96,7 +100,7 @@ class OfflineConnectionResponse2 : Packet {
 	bool encryptionEnabled;
 	
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeLong(serverGUID);
 			stream.writeSysAddress(clientAddress, clientPort);
@@ -104,7 +108,7 @@ class OfflineConnectionResponse2 : Packet {
 			stream.writeByte(encryptionEnabled ? 1 : 0);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
 			serverGUID = stream.readLong();
 			stream.readSysAddress(clientAddress, clientPort);
@@ -117,7 +121,7 @@ class OfflineConnectionResponse2 : Packet {
 		}
 		
 		uint getSize() {
-			return 30;
+			return 35;
 		}
 	}
 }

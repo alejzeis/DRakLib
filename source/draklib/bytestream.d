@@ -1,5 +1,7 @@
 ﻿module draklib.bytestream;
 
+import draklib.util;
+
 import std.stdio;
 import std.conv : to;
 import std.algorithm.mutation : reverse;
@@ -283,6 +285,11 @@ class ByteStream {
 	*/
 	void skip(in uint bytes) {
 		setPosition(getPosition() + bytes);
+	}
+
+	void trimTo(in uint bytes) {
+		enforce(getSize() - bytes > 0 && getSize() - bytes >= getPosition(), new InvalidArgumentException("Can't trim by value greater than buffer size/position: " ~ to!string(bytes) ~ ", " ~ to!string(getPosition())));
+		buffer.length = bytes;
 	}
 	
 	void clear() {

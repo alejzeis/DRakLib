@@ -7,12 +7,12 @@ class UnconnectedPingPacket1 : Packet {
 	long time;
 
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeLong(time);
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 		}
 
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			time = stream.readLong();
 			// MAGIC
 		}
@@ -41,14 +41,14 @@ class UnconnectedPongPacket : Packet {
 	string serverInfo;
 	
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeLong(time);
 			stream.writeLong(serverGUID);
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeStrUTF8(serverInfo);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			time = stream.readLong();
 			serverGUID = stream.readLong();
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);

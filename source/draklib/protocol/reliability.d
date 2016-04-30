@@ -73,7 +73,7 @@ class AcknowledgePacket : Packet {
 	uint[] nums;
 
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			assert(nums !is null, "no sequence numbers provided");
 			uint count = cast(uint) nums.length;
 			uint records = 0;
@@ -115,13 +115,17 @@ class AcknowledgePacket : Packet {
 				records = records + 1;
 			}
 
+			uint oldPos = stream.getPosition();
+
 			stream.setPosition(1);
 			stream.writeUShort(cast(ushort)records);
+			stream.trimTo(oldPos);
 		}
 
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
+			nums = cast(uint[]) [];
+
 			uint count = stream.readUShort();
-			uint pkCount = 0;
 			uint cnt = 0;
 			for(uint i = 0; i < count && stream.getRemainingLength() > 0 && cnt < 4096; i++) {
 				if(stream.readByte == 0) {
@@ -132,10 +136,10 @@ class AcknowledgePacket : Packet {
 					}
 					for(uint c = start; c <= end; c++) {
 						cnt = cnt + 1;
-						nums[pkCount++] = c;
+						nums ~= c;
 					}
 				} else {
-					nums[pkCount++] = stream.readUInt24_LE();
+					nums ~= stream.readUInt24_LE();
 				}
 			}
 		}
@@ -179,14 +183,15 @@ class ContainerPacket : Packet {
 			_decode(stream);
 		}
 
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
 			stream.writeUInt24_LE(sequenceNumber);
+			std.stdio.writeln("1current buffer ", cast(ubyte[]) stream.getBuffer());
 			foreach(packet; packets) {
 				packet._encode(stream);
 			}
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			packets = cast(EncapsulatedPacket[]) [];
 
 			sequenceNumber = stream.readUInt24_LE();
@@ -211,7 +216,7 @@ class ContainerPacket : Packet {
 		uint getSize() {
 			uint size = 4;
 			foreach(pk; packets) {
-				size += pk.getSize();
+				size = size + pk.getSize();
 			}
 			return size;
 		}
@@ -230,25 +235,33 @@ class EncapsulatedPacket : Packet {
 	byte[] payload;
 
 	override {
-		protected void _encode(ByteStream stream) {
+		protected void _encode(ref ByteStream stream) {
+			import std.stdio;
 			stream.writeByte(cast(byte) ((reliability << 5) | (split ? 0b00010000 : 0)));
 			stream.writeUShort(cast(ushort) (payload.length * 8));
-			if(reliability >= Reliability.RELIABLE && reliability != Reliability.UNRELIABLE_WITH_ACK_RECEIPT) {
-				stream.writeUInt24_LE(messageIndex);
-			}
-			if(reliability <= Reliability.RELIABLE_SEQUENCED && reliability != Reliability.RELIABLE_ORDERED) {
-				stream.writeUInt24_LE(orderIndex);
-				stream.writeByte(orderChannel);
+			if(reliability > 0) {
+				if(reliability >= Reliability.RELIABLE && reliability != Reliability.UNRELIABLE_WITH_ACK_RECEIPT) {
+					stream.writeUInt24_LE(messageIndex);
+				}
+				if(reliability <= Reliability.RELIABLE_SEQUENCED && reliability != Reliability.RELIABLE) {
+					stream.writeUInt24_LE(orderIndex);
+					stream.writeByte(orderChannel);
+				}
 			}
 			if(split) {
 				stream.writeUInt(splitCount);
 				stream.writeUShort(splitID);
 				stream.writeUInt(splitIndex);
 			}
+
+			debug {
+				writeln("2current buffer ", cast(ubyte[]) stream.getBuffer());
+				writeln("writing ", payload.length, " to ", stream.getRemainingLength(), " out of ", stream.getSize());
+			}
 			stream.write(payload);
 		}
 		
-		protected void _decode(ByteStream stream) {
+		protected void _decode(ref ByteStream stream) {
 			ubyte header = stream.readUByte();
 			reliability = (header & 0b11100000) >> 5;
 			split = (header & 0b00010000) > 0;
@@ -279,7 +292,7 @@ class EncapsulatedPacket : Packet {
 		}
 		
 		uint getSize() {
-			return cast(uint) (3 + (messageIndex != -1 ? 3 : 0) + (orderIndex != -1 && orderChannel != -1 ? 4 :0) + (split ? 10 : 0) + payload.length);
+			return cast(uint) (3 + (messageIndex != -1 ? 3 : 0) + ((orderIndex != -1 && orderChannel != -1) ? 4 : 0) + (split ? 10 : 0) + (payload.length));
 		}
 	}
 }

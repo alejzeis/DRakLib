@@ -1,0 +1,346 @@
+       |﻿module draklib.bytestream;
+       |
+       |import std.stdio;
+       |import std.conv : to;
+       |import std.algorithm.mutation : reverse;
+       |import std.exception;
+       |import std.system;
+       |
+       |/**
+       | * Class that allows simple reading and writing of high
+       | * level types such as integers and strings to/from bytes.
+       | * 
+       | * Authors: jython234
+       | */ 
+       |class ByteStream {
+       |        private byte[] buffer;
+       |        private uint position;
+       |        private bool dynamic;
+       |        private Endian endianess;
+       |
+0000000|        private this(byte[] data, bool dynamic) {
+0000000|                this.buffer = data;
+0000000|                this.dynamic = dynamic;
+0000000|                this.position = 0;
+       |        }
+       |
+       |        static ByteStream alloc(in uint size, in Endian endianess = Endian.bigEndian) {
+0000000|                assert(size > 0);
+       |
+0000000|                ByteStream stream = new ByteStream(new byte[size], false);
+0000000|                stream.setEndianness(endianess);
+0000000|                return stream;
+       |        }
+       |
+       |        static ByteStream allocDyn(in Endian endianness = Endian.bigEndian) {
+0000000|                byte[] array = [];
+0000000|                ByteStream stream = new ByteStream(array, true);
+0000000|                stream.setEndianness(endianness);
+0000000|                return stream;
+       |        }
+       |
+       |        static ByteStream wrap(byte[] data, in Endian endianess = Endian.bigEndian) {
+0000000|                assert(data.length > 0);
+       |
+0000000|                ByteStream stream = new ByteStream(data, false);
+0000000|                stream.setEndianness(endianess);
+0000000|                return stream;
+       |        }
+       |
+       |        /**
+       |         * Request "size" amount of bytes to be added to the buffer.
+       |         */
+       |        void allocRequest(in ulong size) {
+       |                version(ARM) { //Have to cast due to 32 bit
+       |                        this.buffer.length = this.buffer.length + cast(uint) size;
+       |                } else {
+       |                        version(X86) { //Have to cast due to 32 bit
+       |                                this.buffer.length = this.buffer.length + cast(uint) size;
+       |                        } else {
+0000000|                                this.buffer.length = this.buffer.length + size;
+       |                        }
+       |                }
+       |        }
+       |
+       |        /// Read "len" amount of bytes. The bytes returned have been DUPLICATED, to exactly read use readExact();
+       |        byte[] read(in int len) {
+       |                //assert(len > 0 && len < (getSize() - getPosition()), "Length not in bounds");
+0000000|                enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
+       |
+0000000|                int oldPos = getPosition();
+0000000|                setPosition(getPosition() + len);
+0000000|                return this.buffer[oldPos .. getPosition()].dup;
+       |        }
+       |
+       |        /// Read "len amount of bytes unsigned. The bytes returned have been DUPLICATED.
+       |        ubyte[] readU(in int len) {
+0000000|                return cast(ubyte[]) read(len);
+       |        }
+       |
+       |        byte[] readExact(in int len) {
+0000000|                enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
+       |                
+0000000|                int oldPos = getPosition();
+0000000|                setPosition(getPosition() + len);
+0000000|                return this.buffer[oldPos .. getPosition()];
+       |        }
+       |
+       |        /// Write "data" to the buffer
+       |        void write(in byte[] data) {
+0000000|                assert(data.length > 0);
+0000000|                if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException(to!string(data.length) ~ " needed but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
+0000000|                else if((data.length + getPosition()) > getSize()) {
+0000000|                        allocRequest(data.length + getPosition());
+       |                }
+       |
+0000000|                uint counter = 0;
+0000000|                for(uint i = 0; i < data.length; i++) {
+       |                        ///debug writeln("i: ", i, ", counter: ", counter, ", data: ", data, "data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
+0000000|                        this.buffer[getPosition() + counter] = data[i];
+0000000|                        counter++;
+       |                }
+0000000|                this.setPosition(getPosition() + counter);
+       |        }
+       |
+       |        void writeU(in ubyte[] data) {
+0000000|                write(cast(byte[]) data);
+       |        }
+       |
+       |        //Read Methods
+       |
+       |        byte readByte() {
+0000000|                return read(1)[0];
+       |        }
+       |
+       |        ubyte readUByte() {
+0000000|                return cast(ubyte) readByte();
+       |        }
+       |
+       |        short readShort() {
+0000000|                ubyte[] b = readU(2);
+0000000|                switch(getEndianess()) {
+0000000|                        case Endian.bigEndian:
+0000000|                                return cast(short) (b[0] << 8) | b[1];
+0000000|                        case Endian.littleEndian:
+0000000|                                return cast(short) (b[1] << 8) | b[0];
+0000000|                        default:
+0000000|                                return 0;
+       |                }
+       |        }
+       |
+       |        ushort readUShort() {
+0000000|                return cast(ushort) readShort();
+       |        }
+       |
+       |        uint readUInt24_LE() {
+0000000|                return (readUByte()) | (readUByte() << 8) | (readUByte() << 16);
+       |        }
+       |
+       |        int readInt() {
+0000000|                ubyte[] b = readU(4);
+       |
+0000000|                switch(getEndianess()) {
+0000000|                        case Endian.bigEndian:
+0000000|                                return ((b[0] & 0xFF) << 24) | ((b[1] & 0xFF) << 16) | ((b[2] & 0xFF) << 8) | (b[3] & 0xFF);
+0000000|                        case Endian.littleEndian:
+0000000|                                return ((b[3] & 0xFF) << 24) | ((b[2] & 0xFF) << 16) | ((b[1] & 0xFF) << 8) | (b[0] & 0xFF);
+0000000|                        default:
+0000000|                                return 0;
+       |                }
+       |        }
+       |
+       |        uint readUInt() {
+0000000|                return cast(uint) readInt();
+       |        }
+       |
+       |        long readLong() {
+0000000|                ubyte[] array = cast(ubyte[]) read(8);
+0000000|                switch(getEndianess()) {
+0000000|                        case Endian.bigEndian:
+0000000|                                return ((cast(long) array[0]   & 0xff) << 56) | ((cast(long) array[1] & 0xff) << 48) | ((cast(long) array[2] & 0xff) << 40) | ((cast(long) array[3] & 0xff) << 32) | ((cast(long) array[4] & 0xff) << 24) | ((cast(long) array[5] & 0xff) << 16) | ((cast(long) array[6] & 0xff) << 8) | ((cast(long) array[7] & 0xff));
+0000000|                        case Endian.littleEndian:
+0000000|                                return ((cast(long) array[7]   & 0xff) << 56) | ((cast(long) array[6] & 0xff) << 48) | ((cast(long) array[5] & 0xff) << 40) | ((cast(long) array[4] & 0xff) << 32) | ((cast(long) array[3] & 0xff) << 24) | ((cast(long) array[2] & 0xff) << 16) | ((cast(long) array[1] & 0xff) << 8) | ((cast(long) array[0] & 0xff));
+0000000|                        default:
+0000000|                                return 0;
+       |                }
+       |        }
+       |
+       |        ulong readULong() {
+0000000|                return cast(ulong) readLong();
+       |        }
+       |
+       |        string readStrUTF8() {
+0000000|                ushort len = readUShort();
+0000000|                return cast(string) (cast(ubyte[]) read(len));
+       |        }
+       |
+       |        void readSysAddress(ref string ip, ref ushort port) {
+0000000|                ubyte version_ = readUByte();
+0000000|                switch(version_) {
+0000000|                        case 4:
+0000000|                                ubyte[] addressBytes = readU(4);
+0000000|                                ip = to!string(~addressBytes[0]) ~ "." ~ to!string(~addressBytes[1]) ~ "." ~ to!string(~addressBytes[2]) ~ "." ~ to!string(~addressBytes[3]);
+0000000|                                port = readUShort();
+0000000|                                break;
+0000000|                        default:
+0000000|                                throw new DecodeException("Invalid IP version: " ~ to!string(version_));
+       |                }
+       |        }
+       |
+       |        //Write methods
+       |        void writeByte(in byte b) {
+0000000|                write([b]);
+       |        }
+       |
+       |        void writeUByte(in ubyte b) {
+0000000|                writeByte(cast(byte) b);
+       |        }
+       |
+       |        void writeShort(in short s) {
+0000000|                switch(getEndianess()) {
+0000000|                        case Endian.bigEndian:
+0000000|                                write(cast(byte[]) [(s >> 8) & 0xFF,  s & 0xFF]);
+0000000|                                break;
+0000000|                        case Endian.littleEndian:
+0000000|                                write(cast(byte[]) [s & 0xFF, (s >> 8) & 0xFF]);
+0000000|                                break;
+0000000|                        default:
+0000000|                                break;
+       |                }
+       |        }
+       |
+       |        void writeUShort(in ushort s) {
+0000000|                writeShort(cast(short) s);
+       |        }
+       |
+       |        void writeUInt24_LE(in uint i24) {
+0000000|                write(cast(byte[]) [i24 & 0xFF, (i24 >> 8) & 0xFF, (i24 >> 16) & 0xFF]);
+       |        }
+       |
+       |        void writeInt(in int i) {
+0000000|                byte[] bytes;
+0000000|                bytes.length = 4;
+0000000|                bytes[0] = cast(byte) ((i >> 24) & 0xFF);
+0000000|                bytes[1] = cast(byte) ((i >> 16) & 0xFF);
+0000000|                bytes[2] = cast(byte) ((i >> 8) & 0xFF);
+0000000|                bytes[3] = cast(byte) (i & 0xFF);
+       |
+0000000|                if(getEndianess() == Endian.littleEndian) 
+0000000|                        reverse(bytes);
+       |
+0000000|                write(bytes);
+       |        }
+       |
+       |        void writeUInt(in uint i) {
+0000000|                writeInt(cast(int) i);
+       |        }
+       |
+       |        void writeLong(in long l) {
+0000000|                byte[] bytes;
+0000000|                bytes.length = 8;
+0000000|                bytes[0] = cast(byte) ((l >> 56) & 0xFF);
+0000000|                bytes[1] = cast(byte) ((l >> 48) & 0xFF);
+0000000|                bytes[2] = cast(byte) ((l >> 40) & 0xFF);
+0000000|                bytes[3] = cast(byte) ((l >> 32) & 0xFF);
+0000000|                bytes[4] = cast(byte) ((l >> 24) & 0xFF);
+0000000|                bytes[5] = cast(byte) ((l >> 16) & 0xFF);
+0000000|                bytes[6] = cast(byte) ((l >> 8) & 0xFF);
+0000000|                bytes[7] = cast(byte) (l & 0xFF);
+       |
+0000000|                if(getEndianess() == Endian.littleEndian) 
+0000000|                        reverse(bytes);
+       |
+0000000|                write(bytes);
+       |        }
+       |
+       |        void writeULong(in ulong l) {
+0000000|                writeLong(cast(long) l);
+       |        }
+       |
+       |        void writeStrUTF8(in string s) {
+0000000|                byte[] data = cast(byte[]) s;
+0000000|                writeUShort(cast(ushort) data.length);
+0000000|                write(data);
+       |        }
+       |
+       |        void writeSysAddress(in string ip, in ushort port, in ubyte version_ = 4) {
+0000000|                enforce(version_ == 4, new EncodeException("Invalid IP version: " ~ to!string(version_)));
+       |
+       |                import std.array;
+       |
+0000000|                writeUByte(version_);
+0000000|                foreach(s; split(ip, ".")) {
+0000000|                        writeUByte(~to!ubyte(s));
+       |                }
+0000000|                writeUShort(port);
+       |        }
+       |
+       |        //Util methods
+       |
+       |        /**
+       |        * Skip "bytes" amount of bytes. The buffer's
+       |        * position will increment by that amount.
+       |        */
+       |        void skip(in uint bytes) {
+0000000|                setPosition(getPosition() + bytes);
+       |        }
+       |        
+       |        void clear() {
+0000000|                buffer = null;
+0000000|                position = 0;
+       |
+       |        }
+       |
+       |        //Getters/Setters
+       |
+       |        uint getPosition() {
+0000000|                return this.position;
+       |        }
+       |
+       |        void setPosition(in uint position) {
+0000000|                this.position = position;
+       |        }
+       |
+       |        uint getSize() {
+0000000|                return cast(uint) this.buffer.length;
+       |        }
+       |
+       |        uint getRemainingLength() {
+0000000|                return cast(uint) (this.buffer.length - getPosition());
+       |        }
+       |
+       |        Endian getEndianess() {
+0000000|                return this.endianess;
+       |        }
+       |
+       |        void setEndianness(in Endian endianess) {
+0000000|                this.endianess = endianess;
+       |        }
+       |
+       |        byte[] getBuffer() {
+0000000|                return this.buffer;
+       |        }
+       |}
+       |
+       |class OutOfBoundsException : Exception {
+0000000|        this() {
+0000000|                super("Data is out of bounds");
+       |        }
+       |        
+0000000|        this(string msg) {
+0000000|                super(msg);
+       |        }
+       |}
+       |
+       |class EncodeException : Exception {
+0000000|        this(string msg) {
+0000000|                super(msg);
+       |        }
+       |}
+       |
+       |class DecodeException : Exception {
+0000000|        this(string msg) {
+0000000|                super(msg);
+       |        }
+       |}
+source/draklib/bytestream.d is 0% covered

@@ -12,13 +12,13 @@ class OnlineConnectionRequest : Packet {
 
 	override {
 		override {
-			protected void _encode(ByteStream stream) {
+			protected void _encode(ref ByteStream stream) {
 				stream.writeLong(GUID);
 				stream.writeLong(time);
 				//Extra?
 			}
 			
-			protected void _decode(ByteStream stream) {
+			protected void _decode(ref ByteStream stream) {
 				GUID = stream.readLong();
 				time = stream.readUInt24_LE();
 				//Extra?
@@ -45,18 +45,18 @@ class OnlineConnectionRequestAccepted : Packet {
 	
 	override {
 		override {
-			protected void _encode(ByteStream stream) {
+			protected void _encode(ref ByteStream stream) {
 				internalIds = [
-					0:"255.255.255.255:19132",
-					1:"255.255.255.255:19132",
-					2:"255.255.255.255:19132",
-					3:"255.255.255.255:19132",
-					4:"255.255.255.255:19132",
-					5:"255.255.255.255:19132",
-					6:"255.255.255.255:19132",
-					7:"255.255.255.255:19132",
-					8:"255.255.255.255:19132",
-					9:"255.255.255.255:19132"
+					0:"127.0.0.1:19132",
+					1:"0.0.0.0:19132",
+					2:"0.0.0.0:19132",
+					3:"0.0.0.0:19132",
+					4:"0.0.0.0:19132",
+					5:"0.0.0.0:19132",
+					6:"0.0.0.0:19132",
+					7:"0.0.0.0:19132",
+					8:"0.0.0.0:19132",
+					9:"0.0.0.0:19132",
 				];
 
 				stream.writeSysAddress(clientAddress, clientPort);
@@ -70,7 +70,7 @@ class OnlineConnectionRequestAccepted : Packet {
 				stream.writeLong(time);
 			}
 			
-			protected void _decode(ByteStream stream) {
+			protected void _decode(ref ByteStream stream) {
 				stream.readSysAddress(clientAddress, clientPort);
 				sysIndex = stream.readShort();
 				for(int i = 0; i < 10; i++) {

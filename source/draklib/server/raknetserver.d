@@ -21,7 +21,7 @@ struct ServerOptions {
 
 	/// The Amount of time with no packets recieved needed to disconnect
 	/// a client due to timeout.
-	uint timeoutThreshold = 5000;
+	uint timeoutThreshold = 7000;
 
 	bool warnOnCantKeepUp = true;
 
@@ -38,7 +38,8 @@ class RakNetServer {
 	package Session[string] sessions;
 	package ulong[string] blacklist;
 
-	private bool running = false;
+	private shared bool running = false;
+	private shared bool crashed = false;
 	private ulong currentTick;
 
 	this(in Tid controller, in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
@@ -74,12 +75,19 @@ class RakNetServer {
 		while(running) {
 			sw.reset();
 			sw.start();
+			/*
 			try{
 				doTick();
 			} catch(Exception e) {
 				logger.logError("FATAL! Exception in tick!");
 				logger.logTrace(e.toString());
+
+				running = false;
+				crashed = true;
+				break;
 			}
+			*/
+			doTick();
 			sw.stop();
 			elapsed = sw.peek().msecs();
 			if(elapsed > 50) {
@@ -96,6 +104,10 @@ class RakNetServer {
 		byte[] data = new byte[2048];
 		while(max-- > 0 && socket.recv(a, data)) {
 			handlePacket(a, data);
+		}
+
+		foreach(session; sessions) {
+			session.update();
 		}
 	}
 
@@ -128,13 +140,15 @@ class RakNetServer {
 				break;
 
 			default:
-				Session session;
-				if(!(address.toString() in sessions)) {
-					import std.array;
+				import std.array;
+
+				Session session = sessions.get(address.toString(), null);
+				if(session is null) {
 					string ip = split(address.toString(), ":")[0];
 					ushort port = to!ushort(split(address.toString(), ":")[1]);
-
 					session = new Session(this, ip, port);
+
+					logger.logDebug("Session " ~ session.getIdentifier() ~ " created");
 					sessions[session.getIdentifier()] = session;
 				}
 				session.handlePacket(data);
@@ -152,5 +166,13 @@ class RakNetServer {
 		if(reason !is null) {
 			logger.logDebug("Session " ~ session.getIdentifier() ~ " closed: " ~ reason);
 		}
+	}
+
+	public bool isRunning() {
+		return running;
+	}
+
+	public bool hasCrashed() {
+		return crashed;
 	}
 }

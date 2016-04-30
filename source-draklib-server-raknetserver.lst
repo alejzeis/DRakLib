@@ -1,0 +1,166 @@
+       |﻿module draklib.server.raknetserver;
+       |import draklib.core;
+       |import draklib.logging;
+       |import draklib.util;
+       |import draklib.server.socket;
+       |import draklib.server.session;
+       |import draklib.protocol.unconnected;
+       |
+       |import core.thread;
+       |
+       |import std.exception;
+       |import std.concurrency;
+       |import std.datetime;
+       |import std.conv;
+       |import std.socket : Address;
+       |
+       |struct ServerOptions {
+       |        string serverIdent;
+       |        uint sendBufferSize = 4096;
+       |        uint recvBufferSize = 4096;
+       |
+       |        /// The Amount of time with no packets recieved needed to disconnect
+       |        /// a client due to timeout.
+       |        uint timeoutThreshold = 5000;
+       |
+       |        bool warnOnCantKeepUp = true;
+       |
+       |        long serverGUID = -1;
+       |}
+       |
+       |class RakNetServer {
+       |        shared static uint INSTANCES = 0;
+       |        package const Logger logger;
+       |        package const Tid controller;
+       |        package ServerSocket socket;
+       |        package ServerOptions options;
+       |
+       |        package Session[string] sessions;
+       |        package ulong[string] blacklist;
+       |
+       |        private shared bool running = false;
+       |        private shared bool crashed = false;
+       |        private ulong currentTick;
+       |
+      1|        this(in Tid controller, in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
+      1|                this.logger = logger;
+      1|                this.controller = controller;
+      1|                this.options = options;
+      1|                socket = new ServerSocket(logger, bindIp, bindPort);
+       |
+      1|                if(options.serverGUID == -1) {
+       |                        import std.random;
+      1|                        options.serverGUID = uniform(long.min, long.max);
+       |                }
+       |        }
+       |
+       |        void start() {
+      1|                enforce(!running, new InvalidOperationException("Attempted to start server while already running!"));
+      1|                running = true;
+      1|                run();
+       |        }
+       |
+       |        void stop() {
+0000000|                enforce(running, new InvalidOperationException("Attempted to stop server that is not running!"));
+       |        }
+       |
+       |        private void run() {
+      1|                Thread.getThis().name = "RakNetServer #" ~ to!string(INSTANCES++);
+      1|                logger.logDebug("Starting DRakLib server on " ~ socket.getBindAddress().toString());
+       |
+      1|                socket.bind();
+       |
+0000000|                long elapsed;
+0000000|                StopWatch sw = StopWatch();
+0000000|                while(running) {
+0000000|                        sw.reset();
+0000000|                        sw.start();
+       |                        try{
+0000000|                                doTick();
+       |                        } catch(Exception e) {
+0000000|                                logger.logError("FATAL! Exception in tick!");
+0000000|                                logger.logTrace(e.toString());
+       |                        }
+0000000|                        sw.stop();
+0000000|                        elapsed = sw.peek().msecs();
+0000000|                        if(elapsed > 50) {
+0000000|                                if(options.warnOnCantKeepUp) logger.logWarn("Can't keep up! (" ~ to!string(elapsed) ~ " > 50) Did the system time change or is the server overloaded?");
+       |                        } else {
+0000000|                                Thread.sleep(dur!("msecs")(50 - elapsed));
+       |                        }
+       |                }
+       |        }
+       |
+       |        private void doTick() {
+0000000|                uint max = 500;
+0000000|                Address a;
+0000000|                byte[] data = new byte[2048];
+0000000|                while(max-- > 0 && socket.recv(a, data)) {
+0000000|                        handlePacket(a, data);
+       |                }
+       |        }
+       |
+       |        private void handlePacket(ref Address address, ref byte[] data) {
+0000000|                switch(data[0]) {
+0000000|                        case RakNetInfo.UNCONNECTED_PING_1:
+0000000|                                UnconnectedPingPacket1 ping1 = new UnconnectedPingPacket1();
+0000000|                                ping1.decode(data);
+       |
+0000000|                                UnconnectedPongPacket pong1 = new UnconnectedPongPacket();
+0000000|                                pong1.serverGUID = options.serverGUID;
+0000000|                                pong1.serverInfo = options.serverIdent;
+0000000|                                pong1.time = ping1.time;
+0000000|                                byte[] buffer;
+0000000|                                pong1.encode(buffer);
+0000000|                                sendPacket(address, buffer);
+0000000|                                break;
+       |                        
+0000000|                        case RakNetInfo.UNCONNECTED_PING_2:
+0000000|                                UnconnectedPingPacket2 ping2 = new UnconnectedPingPacket2();
+0000000|                                ping2.decode(data);
+       |
+0000000|                                AdvertiseSystemPacket pong2 = new AdvertiseSystemPacket();
+0000000|                                pong2.serverGUID = options.serverGUID;
+0000000|                                pong2.serverInfo = options.serverIdent;
+0000000|                                pong2.time = ping2.time;
+0000000|                                byte[] buffer;
+0000000|                                pong2.encode(buffer);
+0000000|                                sendPacket(address, buffer);
+0000000|                                break;
+       |
+0000000|                        default:
+0000000|                                Session session;
+0000000|                                if(!(address.toString() in sessions)) {
+       |                                        import std.array;
+0000000|                                        string ip = split(address.toString(), ":")[0];
+0000000|                                        ushort port = to!ushort(split(address.toString(), ":")[1]);
+       |
+0000000|                                        session = new Session(this, ip, port);
+0000000|                                        sessions[session.getIdentifier()] = session;
+       |                                }
+0000000|                                session.handlePacket(data);
+0000000|                                break;
+       |                }
+       |        }
+       |
+       |        package void sendPacket(Address sendTo, in byte[] data) {
+0000000|                socket.send(sendTo, data);
+       |        }
+       |
+       |        package void onSessionClose(Session session, in string reason = null) {
+0000000|                if(!(session.getIdentifier() in sessions)) return;
+0000000|                sessions.remove(session.getIdentifier());
+0000000|                if(reason !is null) {
+0000000|                        logger.logDebug("Session " ~ session.getIdentifier() ~ " closed: " ~ reason);
+       |                }
+       |        }
+       |
+       |        public bool isRunning() {
+0000000|                return running;
+       |        }
+       |
+       |        public bool hasCrashed() {
+0000000|                return crashed;
+       |        }
+       |}
+source/draklib/server/raknetserver.d is 18% covered

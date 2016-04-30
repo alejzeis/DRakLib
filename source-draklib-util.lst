@@ -1,0 +1,93 @@
+       |﻿module draklib.util;
+       |import std.conv;
+       |import std.exception;
+       |
+       |/**
+       | * Get the current time in milliseconds (since epoch).
+       | * This method uses bindings to the C functions gettimeofday and
+       | * GetSystemTime depending on the platform.
+       | */
+       |long getTimeMillis() {
+       |        version(Posix) {
+       |                pragma(msg, "Using core.sys.posix.sys.time.gettimeofday() for native getTimeMillis()");
+       |                import core.sys.posix.sys.time;
+       |                
+0000000|                timeval t;
+0000000|                gettimeofday(&t, null);
+       |                
+0000000|                return t.tv_sec * 1000 + t.tv_usec / 1000;
+       |        } else version(Windows) {
+       |                pragma(msg, "Using core.sys.windows.winbase.GetSystemTime() for native getTimeMillis()");
+       |                import core.sys.windows.winbase;
+       |                
+       |                SYSTEMTIME time;
+       |                GetSystemTime(&time);
+       |                
+       |                return (time.wSecond * 1000) + time.wMilliseconds;
+       |        }
+       |}
+       |
+       |/**
+       | * Split a byte array into multiple arrays of sizes
+       | * specified by "chunkSize"
+       | */
+       |byte[][] splitByteArray(byte[] array, in uint chunkSize) {
+       |        //TODO: optimize to not use GC
+0000000|        byte[][] splits = cast(byte[][]) [[]];
+0000000|        uint chunks = 0;
+0000000|        for(int i = 0; i < array.length; i += chunkSize) {
+0000000|                if((array.length - i) > chunkSize) {
+0000000|                        splits[chunks] = array[i..i+chunkSize];
+       |                } else {
+0000000|                        splits[chunks] = array[i..array.length];
+       |                }
+0000000|                chunks++;
+       |        }
+       |        
+0000000|        return splits;
+       |}
+       |
+       |ubyte writeBits(in bool[] bits) {
+0000000|        byte val = 0;
+0000000|        enforce(bits.length <= 8, new InvalidArgumentException(to!string(bits.length) ~ " bits can't fit into one byte!"));
+0000000|        foreach(i, bit; bits) {
+0000000|                val += bit ? (1 << i) : 0;
+       |        }
+0000000|        return val;
+       |}
+       |
+       |bool[] readBits(in ubyte bits) {
+       |        import std.stdio;
+0000000|        bool[] vals = new bool[8];
+0000000|        for(int i = 0; i < 8; i++) {
+0000000|                if(((bits  >> i) & 1) > 0) {
+0000000|                        vals[i] = true;
+       |                } else {
+0000000|                        vals[i] = false;
+       |                }
+       |        }
+0000000|        return vals;
+       |}
+       |
+       |class NotImplementedException : Exception {
+0000000|        this() {
+0000000|                super("Not implemented!");
+       |        }
+       |
+0000000|        this(string message) {
+0000000|                super(message);
+       |        }
+       |}
+       |
+       |class InvalidOperationException : Exception {
+0000000|        this(string message) {
+0000000|                super(message);
+       |        }
+       |}
+       |
+       |class InvalidArgumentException : Exception {
+0000000|        this(string message) {
+0000000|                super(message);
+       |        }
+       |}
+source/draklib/util.d is 0% covered

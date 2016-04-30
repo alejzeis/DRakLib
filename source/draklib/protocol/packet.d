@@ -17,11 +17,11 @@ abstract class Packet {
 		_decode(stream);
 	}
 
-	protected void _encode(ByteStream stream) {
+	protected void _encode(ref ByteStream stream) {
 		throw new NotImplementedException("Encoding has not been implemented by underlying class.");
 	}
 
-	protected void _decode(ByteStream stream) {
+	protected void _decode(ref ByteStream stream) {
 		throw new NotImplementedException("Decoding has not been implemented by underlying class.");
 	}
 

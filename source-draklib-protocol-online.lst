@@ -1,0 +1,96 @@
+       |﻿module draklib.protocol.online;
+       |import draklib.core : RakNetInfo;
+       |import draklib.bytestream : ByteStream, OutOfBoundsException;
+       |import draklib.protocol.packet;
+       |
+       |import std.array;
+       |import std.conv;
+       |
+       |class OnlineConnectionRequest : Packet {
+       |        long GUID;
+       |        long time;
+       |
+       |        override {
+       |                override {
+       |                        protected void _encode(ByteStream stream) {
+0000000|                                stream.writeLong(GUID);
+0000000|                                stream.writeLong(time);
+       |                                //Extra?
+       |                        }
+       |                        
+       |                        protected void _decode(ByteStream stream) {
+0000000|                                GUID = stream.readLong();
+0000000|                                time = stream.readUInt24_LE();
+       |                                //Extra?
+       |                        }
+       |                        
+       |                        ubyte getID() {
+0000000|                                return RakNetInfo.ONLINE_CONNECTION_REQUEST;
+       |                        }
+       |                        
+       |                        uint getSize() {
+0000000|                                return 18;
+       |                        }
+       |                }
+       |        }
+       |}
+       |
+       |class OnlineConnectionRequestAccepted : Packet {
+       |        string clientAddress;
+       |        ushort clientPort;
+       |        short sysIndex = 0;
+       |        string[int] internalIds;
+       |        long requestTime;
+       |        long time;
+       |        
+       |        override {
+       |                override {
+       |                        protected void _encode(ByteStream stream) {
+0000000|                                internalIds = [
+       |                                        0:"255.255.255.255:19132",
+       |                                        1:"255.255.255.255:19132",
+       |                                        2:"255.255.255.255:19132",
+       |                                        3:"255.255.255.255:19132",
+       |                                        4:"255.255.255.255:19132",
+       |                                        5:"255.255.255.255:19132",
+       |                                        6:"255.255.255.255:19132",
+       |                                        7:"255.255.255.255:19132",
+       |                                        8:"255.255.255.255:19132",
+       |                                        9:"255.255.255.255:19132"
+       |                                ];
+       |
+0000000|                                stream.writeSysAddress(clientAddress, clientPort);
+0000000|                                stream.writeShort(sysIndex);
+0000000|                                foreach(id; internalIds.values) {
+0000000|                                        string ip = split(id, ":")[0];
+0000000|                                        ushort port = to!ushort(split(id, ":")[1]);
+0000000|                                        stream.writeSysAddress(ip, port);
+       |                                }
+0000000|                                stream.writeLong(requestTime);
+0000000|                                stream.writeLong(time);
+       |                        }
+       |                        
+       |                        protected void _decode(ByteStream stream) {
+0000000|                                stream.readSysAddress(clientAddress, clientPort);
+0000000|                                sysIndex = stream.readShort();
+0000000|                                for(int i = 0; i < 10; i++) {
+0000000|                                        string ip;
+0000000|                                        ushort port;
+0000000|                                        stream.readSysAddress(ip, port);
+0000000|                                        internalIds[i] = ip ~ ":" ~ to!string(port);
+       |                                }
+0000000|                                requestTime = stream.readLong();
+0000000|                                time = stream.readLong();
+       |                        }
+       |                        
+       |                        ubyte getID() {
+0000000|                                return RakNetInfo.ONLINE_CONNECTION_REQUEST_ACCEPTED;
+       |                        }
+       |                        
+       |                        uint getSize() {
+0000000|                                return 96;
+       |                        }
+       |                }
+       |        }
+       |}
+source/draklib/protocol/online.d is 0% covered

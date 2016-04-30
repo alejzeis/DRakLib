@@ -1,0 +1,399 @@
+       |﻿module draklib.server.session;
+       |import draklib.core;
+       |import draklib.util;
+       |import draklib.bytestream;
+       |import draklib.server.raknetserver;
+       |import draklib.protocol.offline;
+       |import draklib.protocol.reliability;
+       |import draklib.protocol.online;
+       |
+       |import std.conv;
+       |
+       |enum SessionState {
+       |        DISCONNECTED = 0,
+       |        OFFLINE_1 = 1,
+       |        OFFLINE_2 = 2,
+       |        ONLINE_HANDSHAKE = 3,
+       |        ONLINE_CONNECTED = 4
+       |}
+       |
+       |class Session {
+       |        static immutable uint MAX_SPLIT_SIZE = 128;
+       |        static immutable uint MAX_SPLIT_COUNT = 4;
+       |
+       |        private uint state;
+       |        private ushort mtu;
+       |        private long clientGUID;
+       |        private shared long clientID;
+       |        private long timeLastPacketReceived;
+       |        
+       |        private shared int lastPing = -99;
+       |        
+       |        private int lastSeqNum = -1;
+       |        private uint sendSeqNum = 0;
+       |        
+       |        private uint messageIndex = 0;
+       |        private ushort splitID = 0;
+       |        
+       |        private ContainerPacket sendQueue;
+       |        private ContainerPacket[uint] recoveryQueue;
+       |        private bool[uint] ACKQueue;
+       |        private bool[uint] NACKQueue;
+       |        private EncapsulatedPacket[int][int] splitQueue;
+       |        
+       |        private RakNetServer server;
+       |        private const string ip;
+       |        private const ushort port;
+       |
+0000000|        this(RakNetServer server, in string ip, in ushort port) {
+0000000|                this.server = server;
+0000000|                this.ip = ip;
+0000000|                this.port = port;
+       |
+0000000|                state = SessionState.DISCONNECTED;
+       |
+0000000|                sendQueue = new ContainerPacket();
+0000000|                sendQueue.header = 0x84; //Default
+       |        }
+       |
+       |        package void update() {
+0000000|                if(state == SessionState.DISCONNECTED) return;
+0000000|                if((getTimeMillis() - timeLastPacketReceived) >= server.options.timeoutThreshold) {
+       |                        debug server.logger.logDebug("disconnecting");
+0000000|                        disconnect("connection timed out");
+       |                } else {
+0000000|                        if(ACKQueue.length > 0) {
+0000000|                                ACKPacket ack = new ACKPacket();
+0000000|                                ack.nums = cast(uint[]) [];
+0000000|                                foreach(uint num; ACKQueue.keys) {
+0000000|                                        ack.nums ~= num;
+       |                                }
+0000000|                                byte[] data;
+0000000|                                ack.encode(data);
+0000000|                                sendRaw(data);
+0000000|                                version(DigitalMars) ACKQueue.clear();
+       |                                else {
+       |                                        ACKQueue = [0 : true];
+       |                                        ACKQueue.remove(0);
+       |                                }
+       |                        }
+0000000|                        if(NACKQueue.length > 0) {
+0000000|                                NACKPacket nack = new NACKPacket();
+0000000|                                nack.nums = cast(uint[]) [];
+0000000|                                foreach(uint num; NACKQueue.keys) {
+0000000|                                        nack.nums ~= num;
+       |                                }
+0000000|                                byte[] data;
+0000000|                                nack.encode(data);
+0000000|                                sendRaw(data);
+0000000|                                version(DigitalMars) NACKQueue.clear();
+       |                                else {
+       |                                        NACKQueue = [0 : true];
+       |                                        NACKQueue.remove(0);
+       |                                }
+       |                        }
+       |                        
+0000000|                        sendQueuedPackets();
+       |                }
+       |        }
+       |        
+       |        private void sendQueuedPackets() {
+0000000|                if(sendQueue.packets.length > 0) {
+0000000|                        sendQueue.sequenceNumber = sendSeqNum++;
+0000000|                        byte[] data;
+0000000|                        sendQueue.encode(data);
+0000000|                        sendRaw(data);
+0000000|                        recoveryQueue[sendQueue.sequenceNumber] = sendQueue;
+       |                        debug server.logger.logDebug("1Queue now has " ~ to!string(recoveryQueue[sendQueue.sequenceNumber].packets.length));
+0000000|                        sendQueue.packets = [];
+       |                        debug server.logger.logDebug("2Queue now has " ~ to!string(recoveryQueue[sendQueue.sequenceNumber].packets.length));
+       |                }
+       |        }
+       |        
+       |        /**
+       |         * Adds an EncapsulatedPacket to the queue, and sets its
+       |         * messageIndex, orderIndex, and any other values
+       |         * depending on the Reliability.
+       |         * 
+       |         * If the packet's total length is longer than the MTU (Maximum Transport Unit)
+       |         * then the packet will be split into smaller chunks, which each
+       |         * will be added to the queue.
+       |         * Params:
+       |         *     pk =         The EncapsulatedPacket to be added
+       |         *     immediate =  If the packet should skip the queue
+       |         *                  and be sent immediately.
+       |         */
+       |        public void addToQueue(EncapsulatedPacket pk, in bool immediate = false) {
+0000000|                switch(pk.reliability) {
+0000000|                        case Reliability.RELIABLE_ORDERED:
+       |                                //TODO: orderIndex
+0000000|                                goto case;
+0000000|                        case Reliability.RELIABLE:
+0000000|                        case Reliability.RELIABLE_SEQUENCED:
+0000000|                        case Reliability.RELIABLE_WITH_ACK_RECEIPT:
+0000000|                        case Reliability.RELIABLE_ORDERED_WITH_ACK_RECEIPT:
+0000000|                                pk.messageIndex = messageIndex++;
+0000000|                                break;
+0000000|                        default:
+0000000|                                break;
+       |                }
+       |                
+0000000|                if(pk.getSize() + 4 > mtu) { //4 is overhead for CustomPacket header
+       |                        //Packet is too big, needs to be split
+0000000|                        byte[][] buffers = splitByteArray(pk.payload, mtu - 34);
+0000000|                        ushort splitID = this.splitID++;
+0000000|                        for(uint count = 0; count < buffers.length; count++) {
+0000000|                                EncapsulatedPacket ep = new EncapsulatedPacket();
+0000000|                                ep.splitID = splitID;
+0000000|                                ep.split = true;
+0000000|                                ep.splitCount = cast(uint) buffers.length;
+0000000|                                ep.reliability = pk.reliability;
+0000000|                                ep.splitIndex = count;
+0000000|                                ep.payload = buffers[count];
+       |                                
+0000000|                                if(count > 0) {
+0000000|                                        ep.messageIndex = messageIndex++;
+       |                                } else {
+0000000|                                        ep.messageIndex = pk.messageIndex;
+       |                                }
+0000000|                                if(ep.reliability == Reliability.RELIABLE_ORDERED) {
+0000000|                                        ep.orderChannel = pk.orderChannel;
+0000000|                                        ep.orderIndex = pk.orderIndex;
+       |                                }
+       |                                
+0000000|                                queuePacket(ep, true);
+       |                        }
+       |                } else {
+0000000|                        queuePacket(pk, immediate);
+       |                }
+       |        }
+       |        
+       |        private void queuePacket(EncapsulatedPacket pkt, in bool immediate) {
+0000000|                if(immediate) {
+0000000|                        ContainerPacket cp = new ContainerPacket();
+0000000|                        cp.header = 0x80;
+0000000|                        cp.packets = cast(EncapsulatedPacket[]) [];
+0000000|                        cp.packets ~= pkt;
+0000000|                        cp.sequenceNumber = sendSeqNum++;
+0000000|                        byte[] data;
+0000000|                        cp.encode(data);
+0000000|                        sendRaw(data);
+       |                        
+0000000|                        recoveryQueue[cp.sequenceNumber] = cp;
+       |                } else {
+0000000|                        if((sendQueue.getSize() + pkt.getSize()) > mtu) {
+0000000|                                sendQueuedPackets();
+       |                        }
+0000000|                        sendQueue.packets ~= pkt;
+       |                }
+       |        }
+       |        
+       |        public void sendRaw(in byte[] data) {
+       |                import std.socket : InternetAddress;
+0000000|                server.sendPacket(new InternetAddress(ip, port), data);
+       |        }
+       |        
+       |        package void handlePacket(byte[] packet) {
+0000000|                if(state == SessionState.DISCONNECTED) return;
+       |
+0000000|                timeLastPacketReceived = getTimeMillis();
+0000000|                byte[] data;
+0000000|                switch(cast(ubyte) packet[0]) {
+       |                        // Non - Reliable Packets
+0000000|                        case RakNetInfo.OFFLINE_CONNECTION_REQUEST_1:
+0000000|                                if(state != SessionState.OFFLINE_1) return;
+0000000|                                OfflineConnectionRequest1 req1 = new OfflineConnectionRequest1();
+0000000|                                req1.decode(packet);
+0000000|                                mtu = req1.mtuSize;
+       |                                
+       |                                debug server.logger.logDebug("MTU: " ~ to!string(mtu));
+       |                                
+0000000|                                OfflineConnectionResponse1 res1 = new OfflineConnectionResponse1();
+0000000|                                res1.serverGUID = server.options.serverGUID;
+0000000|                                res1.mtu = mtu;
+       |
+0000000|                                res1.encode(data);
+0000000|                                sendRaw(data);
+       |                                
+0000000|                                state = SessionState.OFFLINE_2;
+       |                                debug server.logger.logDebug("Enter state OFFLINE_2");
+0000000|                                break;
+0000000|                        case RakNetInfo.OFFLINE_CONNECTION_REQUEST_2:
+0000000|                                if(state != SessionState.OFFLINE_2) break;
+0000000|                                OfflineConnectionRequest2 req2 = new OfflineConnectionRequest2();
+0000000|                                req2.decode(packet);
+0000000|                                clientGUID = req2.clientGUID;
+       |                                
+0000000|                                OfflineConnectionResponse2 res2 = new OfflineConnectionResponse2();
+0000000|                                res2.serverGUID = server.options.serverGUID;
+0000000|                                res2.clientAddress = ip;
+0000000|                                res2.clientPort = port;
+0000000|                                res2.mtu = mtu;
+0000000|                                res2.encryptionEnabled = false; // RakNet encryption not implemented
+       |
+0000000|                                res2.encode(data);
+0000000|                                sendRaw(data);
+       |                                
+0000000|                                state = SessionState.ONLINE_HANDSHAKE;
+       |                                debug server.logger.logDebug("Enter state ONLINE_HANDSHAKE");
+0000000|                                break;
+       |                                // ACK/NACK
+0000000|                        case RakNetInfo.ACK:
+0000000|                                ACKPacket ack = new ACKPacket();
+0000000|                                ack.decode(packet);
+       |                                
+0000000|                                foreach(uint num; ack.nums) {
+0000000|                                        if(num in recoveryQueue) {
+0000000|                                                recoveryQueue.remove(num);
+       |                                        }
+       |                                }
+0000000|                                break;
+0000000|                        case RakNetInfo.NACK:
+0000000|                                NACKPacket nack = new NACKPacket();
+0000000|                                nack.decode(packet);
+       |                                
+0000000|                                foreach(uint num; nack.nums) {
+0000000|                                        if(num in recoveryQueue) {
+0000000|                                                ContainerPacket cp = recoveryQueue[num];
+0000000|                                                cp.sequenceNumber = sendSeqNum++;
+       |
+0000000|                                                cp.encode(data);
+0000000|                                                sendRaw(data);
+       |
+0000000|                                                recoveryQueue.remove(num);
+       |                                        } else debug server.logger.logWarn("NACK " ~ to!string(num) ~ " not found in recovery queue");
+       |                                }
+0000000|                                break;
+0000000|                        default:
+0000000|                                if(cast(ubyte) (packet[0]) >= 0x80 && cast(ubyte) (packet[0]) <= 0x8F) {
+       |                                        debug server.logger.logDebug("Handling custom packet");
+0000000|                                        ContainerPacket cp = new ContainerPacket();
+0000000|                                        cp.decode(packet);
+0000000|                                        handleContainerPacket(cp);
+       |                                }
+0000000|                                break;
+       |                }
+       |        }
+       |        
+       |        private void handleContainerPacket(ContainerPacket cp) {
+0000000|                int diff = cp.sequenceNumber - lastSeqNum;
+0000000|                if(NACKQueue.length > 0) {
+0000000|                        NACKQueue.remove(cp.sequenceNumber);
+0000000|                        if(diff != 1) {
+0000000|                                for(int i = lastSeqNum + 1; i < cp.sequenceNumber; i++) {
+0000000|                                        NACKQueue[i] = true;
+       |                                }
+       |                        }
+       |                }
+       |                
+0000000|                ACKQueue[cp.sequenceNumber] = true;
+       |                
+0000000|                if(diff >= 1) lastSeqNum = cp.sequenceNumber;
+       |                
+0000000|                foreach(EncapsulatedPacket pk; cp.packets) {
+0000000|                        handleEncapsulatedPacket(pk);
+       |                }
+       |        }
+       |        
+       |        private void handleSplitPacket(EncapsulatedPacket pk) {
+0000000|                if(pk.splitCount >= MAX_SPLIT_SIZE || pk.splitIndex >= MAX_SPLIT_SIZE) {
+       |                        debug server.logger.logWarn("Skipped split Encapsulated: size too big (splitCount: " ~ to!string(pk.splitCount) ~ ", splitIndex: " ~ to!string(pk.splitIndex) ~ ")");
+0000000|                        return;
+       |                }
+       |                
+0000000|                if(!(pk.splitID in splitQueue)) {
+0000000|                        if(splitQueue.length >= MAX_SPLIT_COUNT) {
+       |                                debug server.logger.logWarn("Skipped split Encapsulated: too many in queue (" ~ to!string(splitQueue.length) ~ ")");
+0000000|                                return;
+       |                        }
+0000000|                        EncapsulatedPacket[int] m;
+0000000|                        m[pk.splitIndex] = pk;
+0000000|                        splitQueue[pk.splitID] = m;
+       |                } else {
+0000000|                        auto m = splitQueue[pk.splitID];
+0000000|                        m[pk.splitIndex] = pk;
+0000000|                        splitQueue[pk.splitID] = m;
+       |                }
+       |                
+0000000|                if(splitQueue[pk.splitID].keys.length == pk.splitCount) {
+0000000|                        EncapsulatedPacket ep = new EncapsulatedPacket();
+0000000|                        ByteStream bs = ByteStream.alloc(1024 * 1024);
+0000000|                        auto packets = splitQueue[pk.splitID];
+0000000|                        foreach(EncapsulatedPacket packet; packets) {
+0000000|                                bs.write(packet.payload);
+       |                        }
+       |                        
+0000000|                        splitQueue.remove(pk.splitID);
+       |                        
+0000000|                        ep.payload = bs.getBuffer()[0..bs.getPosition()].dup;
+0000000|                        bs = null;
+       |                        
+0000000|                        handleEncapsulatedPacket(ep);
+       |                }
+       |        }
+       |        
+       |        private void handleEncapsulatedPacket(EncapsulatedPacket pk) {
+0000000|                assert(pk.payload.length > 0);
+0000000|                if(!(state == SessionState.ONLINE_CONNECTED || state == SessionState.ONLINE_HANDSHAKE)) {
+       |                        debug server.logger.logWarn("Skipped Encapsulated: not in right state (" ~ to!string(state) ~ ")");
+0000000|                        return;
+       |                }
+0000000|                if(pk.split && state == SessionState.ONLINE_CONNECTED) {
+0000000|                        handleSplitPacket(pk);
+       |                } else debug server.logger.logWarn("Skipped split Encapsulated: not in right state (" ~ to!string(state) ~ ")");
+       |                
+0000000|                switch(cast(ubyte) pk.payload[0]) {
+0000000|                        case RakNetInfo.DISCONNECT_NOTIFICATION:
+0000000|                                disconnect("client disconnected");
+0000000|                                break;
+0000000|                        case RakNetInfo.ONLINE_CONNECTION_REQUEST:
+0000000|                                OnlineConnectionRequest ocr = new OnlineConnectionRequest();
+0000000|                                ocr.decode(pk.payload);
+       |                                
+0000000|                                OnlineConnectionRequestAccepted ocra = new OnlineConnectionRequestAccepted();
+0000000|                                ocra.clientAddress = ip;
+0000000|                                ocra.clientPort = port;
+0000000|                                ocra.requestTime = ocr.time;
+0000000|                                ocra.time = ocr.time + 1000L;
+       |                                
+0000000|                                EncapsulatedPacket ep = new EncapsulatedPacket();
+0000000|                                ep.reliability = Reliability.UNRELIABLE;
+0000000|                                ocra.encode(ep.payload);
+0000000|                                addToQueue(ep, true);
+0000000|                                break;
+0000000|                        default:
+       |                                //TODO
+0000000|                                break;
+       |                }
+       |        }
+       |        
+       |        public void disconnect(in string reason = null) {
+0000000|                EncapsulatedPacket ep = new EncapsulatedPacket();
+0000000|                ep.reliability = Reliability.UNRELIABLE;
+0000000|                ep.payload = cast(byte[]) [0x15];
+0000000|                addToQueue(ep, true);
+       |                
+       |                //server.addToBlacklist(address, 30);
+       |                
+0000000|                state = SessionState.DISCONNECTED;
+       |                
+0000000|                server.onSessionClose(this, reason);
+       |        }
+       |        
+       |        public RakNetServer getServer() {
+0000000|                return server;
+       |        }
+       |        
+       |        public string getIpAddress() {
+0000000|                return ip;
+       |        }
+       |
+       |        public ushort getPort() {
+0000000|                return port;
+       |        }
+       |
+       |        public string getIdentifier() {
+0000000|                return ip ~ ":" ~ to!string(port);
+       |        }
+       |}
+source/draklib/server/session.d is 0% covered

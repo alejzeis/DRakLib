@@ -1,20 +1,19 @@
 import std.stdio;
 import std.array;
+import std.concurrency;
 
 import draklib.logging;
 import draklib.util;
 import draklib.server.raknetserver;
 
 int main() {
-	//ServerOptions options = ServerOptions();
-	//options.serverIdent = "MCPE;A DRakLib Server!;46;0.14.1;0;0";
+	ServerOptions options = ServerOptions();
+	options.serverIdent = "MCPE;A DRakLib Server!;46;0.14.1;0;0";
 
-	//RakNetServer server = new RakNetServer(new LoggerImpl(), 19132, "0.0.0.0", options);
-	//server.start();
+	RakNetServer server = new RakNetServer(thisTid(), new LoggerImpl(), 19132, "0.0.0.0", options);
+	server.start();
 
-	//ubyte v = writeBits(cast(bool[]) [false, false, true, false, false, false, false, false]);
-	//writeln(v);
-    return 0;
+	return server.hasCrashed() ? 1 : 0;
 }
 
 class LoggerImpl : Logger {

@@ -6,6 +6,7 @@ import draklib.server.raknetserver;
 import draklib.protocol.offline;
 import draklib.protocol.reliability;
 import draklib.protocol.online;
+import draklib.protocol.connected;
 
 import std.conv;
 
@@ -50,7 +51,7 @@ class Session {
 		this.ip = ip;
 		this.port = port;
 
-		state = SessionState.DISCONNECTED;
+		state = SessionState.OFFLINE_1;
 
 		sendQueue = new ContainerPacket();
 		sendQueue.header = 0x84; //Default
@@ -59,7 +60,6 @@ class Session {
 	package void update() {
 		if(state == SessionState.DISCONNECTED) return;
 		if((getTimeMillis() - timeLastPacketReceived) >= server.options.timeoutThreshold) {
-			debug server.logger.logDebug("disconnecting");
 			disconnect("connection timed out");
 		} else {
 			if(ACKQueue.length > 0) {
@@ -338,9 +338,11 @@ class Session {
 			debug server.logger.logWarn("Skipped Encapsulated: not in right state (" ~ to!string(state) ~ ")");
 			return;
 		}
-		if(pk.split && state == SessionState.ONLINE_CONNECTED) {
-			handleSplitPacket(pk);
-		} else debug server.logger.logWarn("Skipped split Encapsulated: not in right state (" ~ to!string(state) ~ ")");
+		if(pk.split) {
+			if(state == SessionState.ONLINE_CONNECTED)
+				handleSplitPacket(pk);
+			else debug server.logger.logWarn("Skipped split Encapsulated: not in right state (" ~ to!string(state) ~ ")");
+		}
 		
 		switch(cast(ubyte) pk.payload[0]) {
 			case RakNetInfo.DISCONNECT_NOTIFICATION:
@@ -361,8 +363,25 @@ class Session {
 				ocra.encode(ep.payload);
 				addToQueue(ep, true);
 				break;
+			case 0x13:
+				debug server.logger.logDebug("Got 0x13");
+				state = SessionState.ONLINE_CONNECTED;
+				break;
+			case RakNetInfo.CONNECTED_PING:
+				ConnectedPingPacket ping = new ConnectedPingPacket();
+				ping.decode(pk.payload);
+
+				ConnectedPongPacket pong = new ConnectedPongPacket();
+				pong.time = ping.time;
+
+				EncapsulatedPacket ep = new EncapsulatedPacket();
+				ep.reliability = Reliability.UNRELIABLE;
+				pong.encode(ep.payload);
+				addToQueue(ep, true);
+				break;
 			default:
-				//TODO
+				import std.format;
+				debug server.logger.logDebug("Extra: " ~ format("%02X", pk.payload[0]));
 				break;
 		}
 	}

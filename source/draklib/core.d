@@ -1,7 +1,7 @@
 ﻿module draklib.core;
 
 class RakNetInfo {
-	static immutable int RAKNET_PROTOCOL = 7;
+	static immutable int RAKNET_PROTOCOL = 6;
 	static immutable ubyte[] RAKNET_MAGIC = [
 	0x00,  0xff,  0xff, 0x00,
 	 0xfe,  0xfe,  0xfe,  0xfe,
