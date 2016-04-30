@@ -7,7 +7,8 @@ import draklib.util;
 /// Header for the Container Packet's PID.
 /// Information taken from 
 /// https://github.com/OculusVR/RakNet/blob/master/Source/ReliabilityLayer.cpp#L110
-struct ContainerHeader {
+
+deprecated("Implementation seems to be incorrect") struct ContainerHeader {
 	bool isACK;
 	bool isNACK;
 	bool isPacketPair;
@@ -18,7 +19,7 @@ struct ContainerHeader {
 
 	ubyte encode() {
 		bool[] bits = new bool[8];
-		bits[0] = true; //IsValid
+		bits[0] = isValid; //IsValid
 		if(isACK) {
 			bits[1] = true;
 			bits[2] = hasBAndAS;
@@ -162,15 +163,19 @@ class NACKPacket : AcknowledgePacket {
 }
 
 class ContainerPacket : Packet {
-	ContainerHeader header;
+	//ContainerHeader header;
+	ubyte header;
 	uint sequenceNumber;
 	EncapsulatedPacket[] packets;
 
 	override {
 		void decode(byte[] data) {
 			ByteStream stream = ByteStream.wrap(data);
+			/*
 			header = ContainerHeader();
 			header.decode(stream.readUByte());
+			*/
+			header = stream.readUByte();
 			_decode(stream);
 		}
 
@@ -200,11 +205,15 @@ class ContainerPacket : Packet {
 		}
 		
 		ubyte getID() {
-			return header.encode();
+			return header;
 		}
 		
 		uint getSize() {
-			return 0;
+			uint size = 4;
+			foreach(pk; packets) {
+				size += pk.getSize();
+			}
+			return size;
 		}
 	}
 }

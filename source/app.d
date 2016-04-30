@@ -14,17 +14,6 @@ int main() {
 
 	//ubyte v = writeBits(cast(bool[]) [false, false, true, false, false, false, false, false]);
 	//writeln(v);
-	import draklib.protocol.reliability;
-	for(int i = 128; i <= 143; i++) {
-		ContainerHeader ch = ContainerHeader();
-		ch.decode(cast(byte) i);
-		import std.format;
-		writeln(format("%02X", i), " ", ch);
-	}
-	/*
-	writeln(readBits(cast(ubyte) 0x84));
-	writeln(readBits(v));
-	*/
     return 0;
 }
 

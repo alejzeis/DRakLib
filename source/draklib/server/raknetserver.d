@@ -3,11 +3,13 @@ import draklib.core;
 import draklib.logging;
 import draklib.util;
 import draklib.server.socket;
+import draklib.server.session;
 import draklib.protocol.unconnected;
 
 import core.thread;
 
 import std.exception;
+import std.concurrency;
 import std.datetime;
 import std.conv;
 import std.socket : Address;
@@ -27,14 +29,21 @@ struct ServerOptions {
 }
 
 class RakNetServer {
+	shared static uint INSTANCES = 0;
 	package const Logger logger;
+	package const Tid controller;
 	package ServerSocket socket;
 	package ServerOptions options;
 
-	private bool running = false;
+	package Session[string] sessions;
+	package ulong[string] blacklist;
 
-	this(in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
+	private bool running = false;
+	private ulong currentTick;
+
+	this(in Tid controller, in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
 		this.logger = logger;
+		this.controller = controller;
 		this.options = options;
 		socket = new ServerSocket(logger, bindIp, bindPort);
 
@@ -55,6 +64,7 @@ class RakNetServer {
 	}
 
 	private void run() {
+		Thread.getThis().name = "RakNetServer #" ~ to!string(INSTANCES++);
 		logger.logDebug("Starting DRakLib server on " ~ socket.getBindAddress().toString());
 
 		socket.bind();
