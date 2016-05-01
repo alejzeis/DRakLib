@@ -4,6 +4,7 @@ import draklib.bytestream : ByteStream, OutOfBoundsException;
 import draklib.protocol.packet;
 
 import std.array;
+import std.stdio;
 import std.conv;
 
 class OnlineConnectionRequest : Packet {
@@ -47,16 +48,16 @@ class OnlineConnectionRequestAccepted : Packet {
 		override {
 			protected void _encode(ref ByteStream stream) {
 				internalIds = [
-					0:"127.0.0.1:19132",
-					1:"0.0.0.0:19132",
-					2:"0.0.0.0:19132",
-					3:"0.0.0.0:19132",
-					4:"0.0.0.0:19132",
-					5:"0.0.0.0:19132",
-					6:"0.0.0.0:19132",
-					7:"0.0.0.0:19132",
-					8:"0.0.0.0:19132",
-					9:"0.0.0.0:19132",
+					0:"127.0.0.1:0",
+					1:"0.0.0.0:0",
+					2:"0.0.0.0:0",
+					3:"0.0.0.0:0",
+					4:"0.0.0.0:0",
+					5:"0.0.0.0:0",
+					6:"0.0.0.0:0",
+					7:"0.0.0.0:0",
+					8:"0.0.0.0:0",
+					9:"0.0.0.0:0",
 				];
 
 				stream.writeSysAddress(clientAddress, clientPort);
@@ -64,6 +65,7 @@ class OnlineConnectionRequestAccepted : Packet {
 				foreach(id; internalIds.values) {
 					string ip = split(id, ":")[0];
 					ushort port = to!ushort(split(id, ":")[1]);
+					writeln("address is: ", ip, " ", port);
 					stream.writeSysAddress(ip, port);
 				}
 				stream.writeLong(requestTime);

@@ -203,7 +203,6 @@ class ContainerPacket : Packet {
 					debug {
 						import std.stdio;
 						writeln("WARNING: OutofBoundsException while processing ContainerPacket!");
-						throw e;
 					}
 				}
 			}

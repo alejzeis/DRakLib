@@ -11,13 +11,13 @@ class OfflineConnectionRequest1 : Packet {
 		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeUByte(protocolVersion);
-			stream.write(new byte[mtuSize + 18]);
+			stream.write(new byte[mtuSize - 18]);
 		}
 		
 		protected void _decode(ref ByteStream stream) {
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
 			protocolVersion = stream.readUByte();
-			mtuSize = cast(ushort) (stream.getRemainingLength() - 18);
+			mtuSize = cast(ushort) (stream.getRemainingLength() + 18);
 		}
 		
 		ubyte getID() {
@@ -38,12 +38,14 @@ class OfflineConnectionResponse1 : Packet {
 		protected void _encode(ref ByteStream stream) {
 			stream.writeU(RakNetInfo.RAKNET_MAGIC);
 			stream.writeLong(serverGUID);
+			stream.writeByte(0); //security
 			stream.writeUShort(mtu);
 		}
 		
 		protected void _decode(ref ByteStream stream) {
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
 			serverGUID = stream.readLong();
+			stream.readByte(); //security
 			mtu = stream.readUShort();
 		}
 		

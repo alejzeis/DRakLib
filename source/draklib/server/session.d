@@ -133,6 +133,7 @@ class Session {
 			case Reliability.RELIABLE_WITH_ACK_RECEIPT:
 			case Reliability.RELIABLE_ORDERED_WITH_ACK_RECEIPT:
 				pk.messageIndex = messageIndex++;
+				debug server.logger.logDebug("Set message index to: " ~ to!string(pk.messageIndex));
 				break;
 			default:
 				break;
@@ -171,7 +172,7 @@ class Session {
 	private void queuePacket(EncapsulatedPacket pkt, in bool immediate) {
 		if(immediate) {
 			ContainerPacket cp = new ContainerPacket();
-			cp.header = 0x80;
+			cp.header = 0x84;
 			cp.packets = cast(EncapsulatedPacket[]) [];
 			cp.packets ~= pkt;
 			cp.sequenceNumber = sendSeqNum++;
@@ -265,7 +266,6 @@ class Session {
 				}
 				break;
 			default:
-				server.logger.logDebug("LI2: " ~ to!string(cast(ubyte[]) packet));
 				if(cast(ubyte) (packet[0]) >= 0x80 && cast(ubyte) (packet[0]) <= 0x8F) {
 					ContainerPacket cp = new ContainerPacket();
 					cp.decode(packet);
@@ -364,8 +364,8 @@ class Session {
 				addToQueue(ep, true);
 				break;
 			case 0x13:
-				debug server.logger.logDebug("Got 0x13");
 				state = SessionState.ONLINE_CONNECTED;
+				debug server.logger.logDebug("Enter state ONLINE_CONNECTED");
 				break;
 			case RakNetInfo.CONNECTED_PING:
 				ConnectedPingPacket ping = new ConnectedPingPacket();

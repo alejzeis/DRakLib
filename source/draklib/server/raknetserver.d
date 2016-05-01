@@ -50,7 +50,7 @@ class RakNetServer {
 
 		if(options.serverGUID == -1) {
 			import std.random;
-			options.serverGUID = uniform(long.min, long.max);
+			this.options.serverGUID = uniform(0L, long.max);
 		}
 	}
 
@@ -104,6 +104,7 @@ class RakNetServer {
 		byte[] data = new byte[1024 * 1024];
 		while(max-- > 0 && socket.recv(a, data)) {
 			handlePacket(a, data);
+			data = new byte[1024 * 1024];
 		}
 
 		foreach(session; sessions) {
@@ -152,7 +153,6 @@ class RakNetServer {
 					logger.logDebug("Session " ~ session.getIdentifier() ~ " created");
 					sessions[session.getIdentifier()] = session;
 				}
-				logger.logDebug("LI: " ~ to!string(cast(ubyte[]) data));
 				session.handlePacket(data);
 				break;
 		}
