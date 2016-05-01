@@ -25,7 +25,6 @@ class Session {
 	private uint state;
 	private ushort mtu;
 	private long clientGUID;
-	private shared long clientID;
 	private long timeLastPacketReceived;
 	
 	private shared int lastPing = -99;
@@ -207,7 +206,7 @@ class Session {
 				req1.decode(packet);
 				mtu = req1.mtuSize;
 				
-				debug server.logger.logDebug("MTU: " ~ to!string(mtu));
+				debug(sessionInfo) server.logger.logDebug("MTU: " ~ to!string(mtu));
 				
 				OfflineConnectionResponse1 res1 = new OfflineConnectionResponse1();
 				res1.serverGUID = server.options.serverGUID;
@@ -217,7 +216,7 @@ class Session {
 				sendRaw(data);
 				
 				state = SessionState.OFFLINE_2;
-				debug server.logger.logDebug("Enter state OFFLINE_2");
+				debug(sessionInfo) server.logger.logDebug("Enter state OFFLINE_2");
 				break;
 			case RakNetInfo.OFFLINE_CONNECTION_REQUEST_2:
 				if(state != SessionState.OFFLINE_2) break;
@@ -236,7 +235,7 @@ class Session {
 				sendRaw(data);
 				
 				state = SessionState.ONLINE_HANDSHAKE;
-				debug server.logger.logDebug("Enter state ONLINE_HANDSHAKE");
+				debug(sessionInfo) server.logger.logDebug("Enter state ONLINE_HANDSHAKE");
 				break;
 				// ACK/NACK
 			case RakNetInfo.ACK:
@@ -262,7 +261,7 @@ class Session {
 						sendRaw(data);
 
 						recoveryQueue.remove(num);
-					} else debug server.logger.logWarn("NACK " ~ to!string(num) ~ " not found in recovery queue");
+					} else debug(sessionInfo) server.logger.logWarn("NACK " ~ to!string(num) ~ " not found in recovery queue");
 				}
 				break;
 			default:
@@ -365,7 +364,8 @@ class Session {
 				break;
 			case 0x13:
 				state = SessionState.ONLINE_CONNECTED;
-				debug server.logger.logDebug("Enter state ONLINE_CONNECTED");
+				debug(sessionInfo) server.logger.logDebug("Enter state ONLINE_CONNECTED");
+				server.onSessionOpen(this, clientGUID);
 				break;
 			case RakNetInfo.CONNECTED_PING:
 				ConnectedPingPacket ping = new ConnectedPingPacket();
@@ -380,8 +380,7 @@ class Session {
 				addToQueue(ep, true);
 				break;
 			default:
-				import std.format;
-				debug server.logger.logDebug("Extra: " ~ format("%02X", pk.payload[0]));
+				server.onSessionReceivePacket(this, cast(shared) pk.payload);
 				break;
 		}
 	}
@@ -392,7 +391,7 @@ class Session {
 		ep.payload = cast(byte[]) [0x15];
 		addToQueue(ep, true);
 		
-		//server.addToBlacklist(address, 30);
+		server.addToBlacklist(getIdentifier(), 30);
 		
 		state = SessionState.DISCONNECTED;
 		
@@ -413,5 +412,9 @@ class Session {
 
 	public string getIdentifier() {
 		return ip ~ ":" ~ to!string(port);
+	}
+
+	public long getClientGUID() {
+		return clientGUID;
 	}
 }

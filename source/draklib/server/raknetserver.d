@@ -4,6 +4,7 @@ import draklib.logging;
 import draklib.util;
 import draklib.server.socket;
 import draklib.server.session;
+import draklib.server.serverinterface;
 import draklib.protocol.unconnected;
 
 import core.thread;
@@ -31,7 +32,7 @@ struct ServerOptions {
 class RakNetServer {
 	shared static uint INSTANCES = 0;
 	package const Logger logger;
-	package const Tid controller;
+	package Tid controller;
 	package ServerSocket socket;
 	package ServerOptions options;
 
@@ -40,9 +41,9 @@ class RakNetServer {
 
 	private shared bool running = false;
 	private shared bool crashed = false;
-	private ulong currentTick;
+	private shared ulong currentTick;
 
-	this(in Tid controller, in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
+	this(Tid controller, in Logger logger, ushort bindPort, string bindIp = "0.0.0.0", ServerOptions options = ServerOptions()) {
 		this.logger = logger;
 		this.controller = controller;
 		this.options = options;
@@ -73,9 +74,9 @@ class RakNetServer {
 		long elapsed;
 		StopWatch sw = StopWatch();
 		while(running) {
+			currentTick++;
 			sw.reset();
 			sw.start();
-			/*
 			try{
 				doTick();
 			} catch(Exception e) {
@@ -86,8 +87,6 @@ class RakNetServer {
 				crashed = true;
 				break;
 			}
-			*/
-			doTick();
 			sw.stop();
 			elapsed = sw.peek().msecs();
 			if(elapsed > 50) {
@@ -113,6 +112,11 @@ class RakNetServer {
 	}
 
 	private void handlePacket(ref Address address, ref byte[] data) {
+		if(address.toString() in blacklist) {
+			if(blacklist[address.toString()] <= currentTick) {
+				blacklist.remove(address.toString());
+			} else return;
+		}
 		switch(data[0]) {
 			case RakNetInfo.UNCONNECTED_PING_1:
 				UnconnectedPingPacket1 ping1 = new UnconnectedPingPacket1();
@@ -162,11 +166,34 @@ class RakNetServer {
 		socket.send(sendTo, data);
 	}
 
+	package void onSessionOpen(Session session, long clientID) {
+		controller.send(SessionOpenMessage(session.getIpAddress(), session.getPort(), session.getClientGUID()));
+	}
+
 	package void onSessionClose(Session session, in string reason = null) {
 		if(!(session.getIdentifier() in sessions)) return;
 		sessions.remove(session.getIdentifier());
 		if(reason !is null) {
 			logger.logDebug("Session " ~ session.getIdentifier() ~ " closed: " ~ reason);
+			send(controller, SessionCloseMessage(session.getIpAddress(), session.getPort(), reason));
+			return;
+		}
+		send(controller, SessionCloseMessage(session.getIpAddress(), session.getPort(), "unknown"));
+	}
+
+	package void onSessionReceivePacket(Session session, shared byte[] buffer) {
+		send(controller, SessionReceivePacketMessage(session.getIpAddress(), session.getPort(), buffer));
+	}
+
+	public void addToBlacklist(string identifier, ulong ticks) {
+		if(identifier in blacklist) return;
+		blacklist[identifier] = currentTick + ticks;
+		debug logger.logDebug("Added " ~ identifier ~ " to blacklist until tick: " ~ to!string(blacklist[identifier]));
+	}
+
+	public void removeFromBlacklist(string identifier) {
+		if(identifier in blacklist) {
+			blacklist.remove(identifier);
 		}
 	}
 

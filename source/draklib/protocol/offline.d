@@ -74,11 +74,7 @@ class OfflineConnectionRequest2 : Packet {
 		}
 		
 		protected void _decode(ref ByteStream stream) {
-			import std.stdio;
 			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
-			if(stream.getSize() != 34) { //Strange extra nullbytes
-				stream.skip(5);
-			}
 			stream.readSysAddress(serverAddress, serverPort);
 			mtu = stream.readUShort();
 			clientGUID = stream.readLong();
