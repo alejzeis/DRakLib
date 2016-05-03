@@ -56,3 +56,43 @@ struct SessionReceivePacketMessage {
 		return this;
 	}
 }
+
+struct SendPacketMessage {
+	shared string ip;
+	shared ushort port;
+	shared bool immediate;
+	shared ubyte reliability;
+	shared byte[] payload;
+
+	this(shared string ip, shared ushort port, shared bool immediate, shared ubyte reliability, shared byte[] payload) {
+		this.ip = ip;
+		this.port = port;
+		this.immediate = immediate;
+		this.reliability = reliability;
+		this.payload = payload;
+	}
+
+	SendPacketMessage opCall(string ip, ushort port, shared bool immediate, ubyte reliability, shared byte[] payload) {
+		this.ip = ip;
+		this.port = port;
+		this.immediate = immediate;
+		this.reliability = reliability;
+		this.payload = payload;
+		return this;
+	}
+}
+
+struct StopServerMessage { }
+
+struct ServerStoppedMessage {
+	bool crashed;
+
+	this(shared bool crashed) {
+		this.crashed = crashed;
+	}
+
+	ServerStoppedMessage opCall(bool crashed) {
+		this.crashed = crashed;
+		return this;
+	}
+}

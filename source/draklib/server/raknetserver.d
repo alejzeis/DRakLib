@@ -63,6 +63,7 @@ class RakNetServer {
 
 	void stop() {
 		enforce(running, new InvalidOperationException("Attempted to stop server that is not running!"));
+		running = false;
 	}
 
 	private void run() {
@@ -95,6 +96,8 @@ class RakNetServer {
 				Thread.sleep(dur!("msecs")(50 - elapsed));
 			}
 		}
+
+		send(controller, ServerStoppedMessage(hasCrashed));
 	}
 
 	private void doTick() {
@@ -109,6 +112,8 @@ class RakNetServer {
 		foreach(session; sessions) {
 			session.update();
 		}
+
+		receiveTimeout(dur!("msecs")(1), &this.onStopServerMessage, &this.onSendPacketMessage);
 	}
 
 	private void handlePacket(ref Address address, ref byte[] data) {
@@ -166,8 +171,10 @@ class RakNetServer {
 		socket.send(sendTo, data);
 	}
 
+	// Message handlers
+
 	package void onSessionOpen(Session session, long clientID) {
-		controller.send(SessionOpenMessage(session.getIpAddress(), session.getPort(), session.getClientGUID()));
+		send(controller, SessionOpenMessage(session.getIpAddress(), session.getPort(), session.getClientGUID()));
 	}
 
 	package void onSessionClose(Session session, in string reason = null) {
@@ -183,6 +190,22 @@ class RakNetServer {
 
 	package void onSessionReceivePacket(Session session, shared byte[] buffer) {
 		send(controller, SessionReceivePacketMessage(session.getIpAddress(), session.getPort(), buffer));
+	}
+
+	package void onStopServerMessage(StopServerMessage m) {
+		stop();
+	}
+
+	package void onSendPacketMessage(SendPacketMessage m) {
+		import draklib.protocol.reliability;
+
+		string ident = m.ip ~ ":" ~ to!string(m.port);
+		if(ident in sessions) {
+			EncapsulatedPacket ep = new EncapsulatedPacket();
+			ep.reliability = m.reliability;
+			ep.payload = cast(byte[]) m.payload;
+			sessions[ident].addToQueue(ep, m.immediate);
+		}
 	}
 
 	public void addToBlacklist(string identifier, ulong ticks) {
