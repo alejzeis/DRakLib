@@ -11,7 +11,7 @@ Tid t;
 bool go = true;
 int code;
 
-int main() {
+int runmain() {
 	t = spawn(&run);
 	handle();
 
