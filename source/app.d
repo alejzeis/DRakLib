@@ -45,7 +45,7 @@ void handler2(SessionCloseMessage m) {
 }
 
 void handler3(SessionReceivePacketMessage m) {
-	import std.format;
+	import std.string;
 	writeln(format("%02X", cast(ubyte) m.payload[0]));
 }
 

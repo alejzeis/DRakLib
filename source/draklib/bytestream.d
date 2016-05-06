@@ -4,7 +4,11 @@ import draklib.util;
 
 import std.stdio;
 import std.conv : to;
-import std.algorithm.mutation : reverse;
+version(DigitalMars) { 
+	import std.algorithm.mutation : reverse;
+} else { // Compatibility with older GDC
+	import std.algorithm : reverse;
+}
 import std.exception;
 import std.system;
 
@@ -285,6 +289,10 @@ class ByteStream {
 	*/
 	void skip(in uint bytes) {
 		setPosition(getPosition() + bytes);
+	}
+	
+	void skip(in ulong bytes) {
+		setPosition(cast(uint) (getPosition() + bytes));
 	}
 
 	void trimTo(in uint bytes) {
