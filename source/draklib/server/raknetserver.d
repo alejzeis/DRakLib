@@ -23,6 +23,9 @@ struct ServerOptions {
 	/// The Amount of time with no packets recieved needed to disconnect
 	/// a client due to timeout.
 	uint timeoutThreshold = 7000;
+	
+	uint recvPacketsPerTick = 250;
+	uint sendPacketsPerTick = 250;
 
 	bool warnOnCantKeepUp = true;
 
@@ -101,7 +104,7 @@ class RakNetServer {
 	}
 
 	private void doTick() {
-		uint max = 500;
+		uint max = options.recvPacketsPerTick;
 		Address a;
 		byte[] data = new byte[1024 * 1024];
 		while(max-- > 0 && socket.recv(a, data)) {
@@ -113,7 +116,10 @@ class RakNetServer {
 			session.update();
 		}
 
-		receiveTimeout(dur!("msecs")(1), &this.onStopServerMessage, &this.onSendPacketMessage);
+		max = options.sendPacketsPerTick;
+		while(max-- > 0 && receiveTimeout(dur!("msecs")(1), &this.onStopServerMessage, &this.onSendPacketMessage)) {
+			
+		}
 	}
 
 	private void handlePacket(ref Address address, ref byte[] data) {
