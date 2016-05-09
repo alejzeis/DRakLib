@@ -103,9 +103,7 @@ class Session {
 			sendQueue.encode(data);
 			sendRaw(data);
 			recoveryQueue[sendQueue.sequenceNumber] = sendQueue;
-			debug server.logger.logDebug("1Queue now has " ~ to!string(recoveryQueue[sendQueue.sequenceNumber].packets.length));
 			sendQueue.packets = [];
-			debug server.logger.logDebug("2Queue now has " ~ to!string(recoveryQueue[sendQueue.sequenceNumber].packets.length));
 		}
 	}
 	
@@ -132,7 +130,7 @@ class Session {
 			case Reliability.RELIABLE_WITH_ACK_RECEIPT:
 			case Reliability.RELIABLE_ORDERED_WITH_ACK_RECEIPT:
 				pk.messageIndex = messageIndex++;
-				debug server.logger.logDebug("Set message index to: " ~ to!string(pk.messageIndex));
+				debug(logMessageIndex) server.logger.logDebug("Set message index to: " ~ to!string(pk.messageIndex));
 				break;
 			default:
 				break;
