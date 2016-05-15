@@ -1,4 +1,4 @@
-﻿module draklib.bytestream;
+module draklib.bytestream;
 
 import draklib.util;
 
@@ -24,13 +24,13 @@ class ByteStream {
 	private bool dynamic;
 	private Endian endianess;
 
-	private this(byte[] data, bool dynamic) {
+	private this(byte[] data, bool dynamic) @safe {
 		this.buffer = data;
 		this.dynamic = dynamic;
 		this.position = 0;
 	}
 
-	static ByteStream alloc(in uint size, in Endian endianess = Endian.bigEndian) {
+	static ByteStream alloc(in uint size, in Endian endianess = Endian.bigEndian) @safe {
 		assert(size > 0);
 
 		ByteStream stream = new ByteStream(new byte[size], false);
@@ -38,14 +38,14 @@ class ByteStream {
 		return stream;
 	}
 
-	static ByteStream allocDyn(in Endian endianness = Endian.bigEndian) {
+	deprecated("not used") static ByteStream allocDyn(in Endian endianness = Endian.bigEndian) @safe {
 		byte[] array = [];
 		ByteStream stream = new ByteStream(array, true);
 		stream.setEndianness(endianness);
 		return stream;
 	}
 
-	static ByteStream wrap(byte[] data, in Endian endianess = Endian.bigEndian) {
+	static ByteStream wrap(byte[] data, in Endian endianess = Endian.bigEndian) @safe {
 		assert(data.length > 0);
 
 		ByteStream stream = new ByteStream(data, false);
@@ -56,7 +56,7 @@ class ByteStream {
 	/**
 	 * Request "size" amount of bytes to be added to the buffer.
 	 */
-	void allocRequest(in ulong size) {
+	void allocRequest(in ulong size) @safe {
 		version(ARM) { //Have to cast due to 32 bit
 			this.buffer.length = this.buffer.length + cast(uint) size;
 		} else {
@@ -69,7 +69,7 @@ class ByteStream {
 	}
 
 	/// Read "len" amount of bytes. The bytes returned have been DUPLICATED, to exactly read use readExact();
-	byte[] read(in int len) {
+	byte[] read(in int len) @trusted {
 		//assert(len > 0 && len < (getSize() - getPosition()), "Length not in bounds");
 		enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 
@@ -79,11 +79,11 @@ class ByteStream {
 	}
 
 	/// Read "len amount of bytes unsigned. The bytes returned have been DUPLICATED.
-	ubyte[] readU(in int len) {
+	ubyte[] readU(in int len) @trusted {
 		return cast(ubyte[]) read(len);
 	}
 
-	byte[] readExact(in int len) {
+	byte[] readExact(in int len) @trusted {
 		enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 		
 		int oldPos = getPosition();
@@ -92,7 +92,7 @@ class ByteStream {
 	}
 
 	/// Write "data" to the buffer
-	void write(in byte[] data) {
+	void write(in byte[] data) @trusted {
 		assert(data.length > 0);
 		if(!dynamic) enforce((data.length + getPosition()) <= getSize(), new OutOfBoundsException(to!string(data.length) ~ " needed but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 		else if((data.length + getPosition()) > getSize()) {
@@ -108,21 +108,21 @@ class ByteStream {
 		this.setPosition(getPosition() + counter);
 	}
 
-	void writeU(in ubyte[] data) {
+	void writeU(in ubyte[] data) @trusted {
 		write(cast(byte[]) data);
 	}
 
 	//Read Methods
 
-	byte readByte() {
+	byte readByte() @safe {
 		return read(1)[0];
 	}
 
-	ubyte readUByte() {
+	ubyte readUByte() @safe {
 		return cast(ubyte) readByte();
 	}
 
-	short readShort() {
+	short readShort() @safe {
 		ubyte[] b = readU(2);
 		switch(getEndianess()) {
 			case Endian.bigEndian:
@@ -134,15 +134,15 @@ class ByteStream {
 		}
 	}
 
-	ushort readUShort() {
+	ushort readUShort() @safe {
 		return cast(ushort) readShort();
 	}
 
-	uint readUInt24_LE() {
+	uint readUInt24_LE() @safe {
 		return (readUByte()) | (readUByte() << 8) | (readUByte() << 16);
 	}
 
-	int readInt() {
+	int readInt() @safe {
 		ubyte[] b = readU(4);
 
 		switch(getEndianess()) {
@@ -155,11 +155,11 @@ class ByteStream {
 		}
 	}
 
-	uint readUInt() {
+	uint readUInt() @safe {
 		return cast(uint) readInt();
 	}
 
-	long readLong() {
+	long readLong() @safe {
 		ubyte[] array = cast(ubyte[]) read(8);
 		switch(getEndianess()) {
 			case Endian.bigEndian:
@@ -171,16 +171,16 @@ class ByteStream {
 		}
 	}
 
-	ulong readULong() {
+	ulong readULong() @safe {
 		return cast(ulong) readLong();
 	}
 
-	string readStrUTF8() {
+	string readStrUTF8() @trusted {
 		ushort len = readUShort();
 		return cast(string) (cast(ubyte[]) read(len));
 	}
 
-	void readSysAddress(ref string ip, ref ushort port) {
+	void readSysAddress(ref string ip, ref ushort port) @trusted {
 		ubyte version_ = readUByte();
 		switch(version_) {
 			case 4:
@@ -194,15 +194,15 @@ class ByteStream {
 	}
 
 	//Write methods
-	void writeByte(in byte b) {
+	void writeByte(in byte b) @safe {
 		write([b]);
 	}
 
-	void writeUByte(in ubyte b) {
+	void writeUByte(in ubyte b) @safe {
 		writeByte(cast(byte) b);
 	}
 
-	void writeShort(in short s) {
+	void writeShort(in short s) @safe {
 		switch(getEndianess()) {
 			case Endian.bigEndian:
 				write(cast(byte[]) [(s >> 8) & 0xFF,  s & 0xFF]);
@@ -215,15 +215,15 @@ class ByteStream {
 		}
 	}
 
-	void writeUShort(in ushort s) {
+	void writeUShort(in ushort s) @safe {
 		writeShort(cast(short) s);
 	}
 
-	void writeUInt24_LE(in uint i24) {
+	void writeUInt24_LE(in uint i24) @safe {
 		write(cast(byte[]) [i24 & 0xFF, (i24 >> 8) & 0xFF, (i24 >> 16) & 0xFF]);
 	}
 
-	void writeInt(in int i) {
+	void writeInt(in int i) @safe {
 		byte[] bytes;
 		bytes.length = 4;
 		bytes[0] = cast(byte) ((i >> 24) & 0xFF);
@@ -237,11 +237,11 @@ class ByteStream {
 		write(bytes);
 	}
 
-	void writeUInt(in uint i) {
+	void writeUInt(in uint i) @safe {
 		writeInt(cast(int) i);
 	}
 
-	void writeLong(in long l) {
+	void writeLong(in long l) @safe {
 		byte[] bytes;
 		bytes.length = 8;
 		bytes[0] = cast(byte) ((l >> 56) & 0xFF);
@@ -259,17 +259,17 @@ class ByteStream {
 		write(bytes);
 	}
 
-	void writeULong(in ulong l) {
+	void writeULong(in ulong l) @safe {
 		writeLong(cast(long) l);
 	}
 
-	void writeStrUTF8(in string s) {
+	void writeStrUTF8(in string s) @trusted {
 		byte[] data = cast(byte[]) s;
 		writeUShort(cast(ushort) data.length);
 		write(data);
 	}
 
-	void writeSysAddress(in string ip, in ushort port, in ubyte version_ = 4) {
+	void writeSysAddress(in string ip, in ushort port, in ubyte version_ = 4) @trusted {
 		enforce(version_ == 4, new EncodeException("Invalid IP version: " ~ to!string(version_)));
 
 		import std.array;
@@ -287,20 +287,20 @@ class ByteStream {
 	* Skip "bytes" amount of bytes. The buffer's
 	* position will increment by that amount.
 	*/
-	void skip(in uint bytes) {
+	void skip(in uint bytes) @safe {
 		setPosition(getPosition() + bytes);
 	}
 	
-	void skip(in ulong bytes) {
+	void skip(in ulong bytes) @safe {
 		setPosition(cast(uint) (getPosition() + bytes));
 	}
 
-	void trimTo(in uint bytes) {
+	void trimTo(in uint bytes) @trusted {
 		enforce(getSize() - bytes > 0 && getSize() - bytes >= getPosition(), new InvalidArgumentException("Can't trim by value greater than buffer size/position: " ~ to!string(bytes) ~ ", " ~ to!string(getPosition())));
 		buffer.length = bytes;
 	}
 	
-	void clear() {
+	void clear() @safe {
 		buffer = null;
 		position = 0;
 
@@ -308,31 +308,31 @@ class ByteStream {
 
 	//Getters/Setters
 
-	uint getPosition() {
+	uint getPosition() @safe {
 		return this.position;
 	}
 
-	void setPosition(in uint position) {
+	void setPosition(in uint position) @safe {
 		this.position = position;
 	}
 
-	uint getSize() {
+	uint getSize() @safe {
 		return cast(uint) this.buffer.length;
 	}
 
-	uint getRemainingLength() {
+	uint getRemainingLength() @safe {
 		return cast(uint) (this.buffer.length - getPosition());
 	}
 
-	Endian getEndianess() {
+	Endian getEndianess() @safe {
 		return this.endianess;
 	}
 
-	void setEndianness(in Endian endianess) {
+	void setEndianness(in Endian endianess) @safe {
 		this.endianess = endianess;
 	}
 
-	byte[] getBuffer() {
+	byte[] getBuffer() @safe {
 		return this.buffer;
 	}
 }

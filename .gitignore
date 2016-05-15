@@ -23,3 +23,5 @@ dub.selections.json
 
 dub.userprefs
 *.lst
+
+.project

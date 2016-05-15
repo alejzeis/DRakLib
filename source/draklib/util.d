@@ -1,4 +1,5 @@
-﻿module draklib.util;
+module draklib.util;
+
 import std.conv;
 import std.exception;
 
@@ -7,7 +8,7 @@ import std.exception;
  * This method uses bindings to the C functions gettimeofday and
  * GetSystemTime depending on the platform.
  */
-long getTimeMillis() {
+long getTimeMillis() @trusted {
 	version(Posix) {
 		pragma(msg, "Using core.sys.posix.sys.time.gettimeofday() for native getTimeMillis()");
 		import core.sys.posix.sys.time;
@@ -31,9 +32,9 @@ long getTimeMillis() {
  * Split a byte array into multiple arrays of sizes
  * specified by "chunkSize"
  */
-byte[][] splitByteArray(byte[] array, in uint chunkSize) {
+byte[][] splitByteArray(byte[] array, in uint chunkSize) @safe {
 	//TODO: optimize to not use GC
-	byte[][] splits = cast(byte[][]) [[]];
+	byte[][] splits;
 	uint chunks = 0;
 	for(int i = 0; i < array.length; i += chunkSize) {
 		if((array.length - i) > chunkSize) {
@@ -47,7 +48,7 @@ byte[][] splitByteArray(byte[] array, in uint chunkSize) {
 	return splits;
 }
 
-ubyte writeBits(in bool[] bits) {
+ubyte writeBits(in bool[] bits) @trusted{
 	byte val = 0;
 	enforce(bits.length <= 8, new InvalidArgumentException(to!string(bits.length) ~ " bits can't fit into one byte!"));
 	foreach(i, bit; bits) {
@@ -56,7 +57,7 @@ ubyte writeBits(in bool[] bits) {
 	return val;
 }
 
-bool[] readBits(in ubyte bits) {
+bool[] readBits(in ubyte bits) @trusted {
 	import std.stdio;
 	bool[] vals = new bool[8];
 	for(int i = 0; i < 8; i++) {
