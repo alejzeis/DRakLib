@@ -1,6 +1,6 @@
 module draklib.info;
 
-immutable int RAKNET_PROTOCOL = 6;
+immutable uint RAKNET_PROTOCOL = 6;
 immutable ubyte[] RAKNET_MAGIC = [
 0x00,  0xff,  0xff, 0x00,
  0xfe,  0xfe,  0xfe,  0xfe,
