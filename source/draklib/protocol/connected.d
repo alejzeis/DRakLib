@@ -19,7 +19,7 @@ class ConnectedPingPacket : Packet {
 			return CONNECTED_PING;
 		}
 		
-		uint getSize() @safe {
+		size_t getSize() @safe {
 			return 9;
 		}
 	}

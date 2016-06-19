@@ -24,8 +24,8 @@ class OfflineConnectionRequest1 : Packet {
 			return OFFLINE_CONNECTION_REQUEST_1;
 		}
 		
-		uint getSize() @safe {
-			return cast(uint) 18 + mtuSize;
+		size_t getSize() @safe {
+			return 18 + mtuSize;
 		}
 	}
 }
@@ -43,7 +43,7 @@ class OfflineConnectionResponse1 : Packet {
 		}
 		
 		protected void _decode(ref ByteStream stream) @safe {
-			stream.skip(RakNetInfo.RAKNET_MAGIC.length);
+			stream.skip(RAKNET_MAGIC.length);
 			serverGUID = stream.readLong();
 			stream.readByte(); //security
 			mtu = stream.readUShort();
@@ -53,7 +53,7 @@ class OfflineConnectionResponse1 : Packet {
 			return OFFLINE_CONNECTION_RESPONSE_1;
 		}
 		
-		uint getSize() {
+		size_t getSize() {
 			return 28;
 		}
 	}
@@ -84,7 +84,7 @@ class OfflineConnectionRequest2 : Packet {
 			return OFFLINE_CONNECTION_REQUEST_2;
 		}
 		
-		uint getSize() @safe {
+		size_t getSize() @safe {
 			return 34;
 		}
 	}
@@ -118,7 +118,7 @@ class OfflineConnectionResponse2 : Packet {
 			return OFFLINE_CONNECTION_RESPONSE_2;
 		}
 		
-		uint getSize() @safe {
+		size_t getSize() @safe {
 			return 35;
 		}
 	}

@@ -1,5 +1,5 @@
 ﻿module draklib.protocol.online;
-import draklib.core : RakNetInfo;
+import draklib.info;
 import draklib.bytestream : ByteStream, OutOfBoundsException;
 import draklib.protocol.packet;
 
@@ -12,23 +12,23 @@ class OnlineConnectionRequest : Packet {
 
 	override {
 		override {
-			protected void _encode(ref ByteStream stream) {
+			protected void _encode(ref ByteStream stream) @trusted {
 				stream.writeLong(GUID);
 				stream.writeLong(time);
 				//Extra?
 			}
 			
-			protected void _decode(ref ByteStream stream) {
+			protected void _decode(ref ByteStream stream) @trusted {
 				GUID = stream.readLong();
 				time = stream.readUInt24_LE();
 				//Extra?
 			}
 			
-			ubyte getID() {
-				return RakNetInfo.ONLINE_CONNECTION_REQUEST;
+			ubyte getID() @safe {
+				return ONLINE_CONNECTION_REQUEST;
 			}
 			
-			uint getSize() {
+			size_t getSize() @safe {
 				return 18;
 			}
 		}
@@ -45,7 +45,7 @@ class OnlineConnectionRequestAccepted : Packet {
 	
 	override {
 		override {
-			protected void _encode(ref ByteStream stream) {
+			protected void _encode(ref ByteStream stream) @trusted {
 				internalIds = [
 					0:"127.0.0.1:0",
 					1:"0.0.0.0:0",
@@ -70,7 +70,7 @@ class OnlineConnectionRequestAccepted : Packet {
 				stream.writeLong(time);
 			}
 			
-			protected void _decode(ref ByteStream stream) {
+			protected void _decode(ref ByteStream stream) @trusted {
 				stream.readSysAddress(clientAddress, clientPort);
 				sysIndex = stream.readShort();
 				for(int i = 0; i < 10; i++) {
@@ -83,11 +83,11 @@ class OnlineConnectionRequestAccepted : Packet {
 				time = stream.readLong();
 			}
 			
-			ubyte getID() {
-				return RakNetInfo.ONLINE_CONNECTION_REQUEST_ACCEPTED;
+			ubyte getID() @trusted {
+				return ONLINE_CONNECTION_REQUEST_ACCEPTED;
 			}
 			
-			uint getSize() {
+			size_t getSize() @trusted {
 				return 96;
 			}
 		}

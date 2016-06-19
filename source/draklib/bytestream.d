@@ -20,7 +20,7 @@ import std.system;
  */ 
 class ByteStream {
 	private byte[] buffer;
-	private uint position;
+	private size_t position;
 	private bool dynamic;
 	private Endian endianess;
 
@@ -30,7 +30,7 @@ class ByteStream {
 		this.position = 0;
 	}
 
-	static ByteStream alloc(in uint size, in Endian endianess = Endian.bigEndian) @safe {
+	static ByteStream alloc(in size_t size, in Endian endianess = Endian.bigEndian) @safe {
 		assert(size > 0);
 
 		ByteStream stream = new ByteStream(new byte[size], false);
@@ -56,37 +56,29 @@ class ByteStream {
 	/**
 	 * Request "size" amount of bytes to be added to the buffer.
 	 */
-	void allocRequest(in ulong size) @safe {
-		version(ARM) { //Have to cast due to 32 bit
-			this.buffer.length = this.buffer.length + cast(uint) size;
-		} else {
-			version(X86) { //Have to cast due to 32 bit
-				this.buffer.length = this.buffer.length + cast(uint) size;
-			} else {
-				this.buffer.length = this.buffer.length + size;
-			}
-		}
+	void allocRequest(in size_t size) @safe {
+		this.buffer.length = this.buffer.length + size;
 	}
 
 	/// Read "len" amount of bytes. The bytes returned have been DUPLICATED, to exactly read use readExact();
-	byte[] read(in int len) @trusted {
+	byte[] read(in size_t len) @trusted {
 		//assert(len > 0 && len < (getSize() - getPosition()), "Length not in bounds");
 		enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 
-		int oldPos = getPosition();
+		size_t oldPos = getPosition();
 		setPosition(getPosition() + len);
 		return this.buffer[oldPos .. getPosition()].dup;
 	}
 
 	/// Read "len amount of bytes unsigned. The bytes returned have been DUPLICATED.
-	ubyte[] readU(in int len) @trusted {
+	ubyte[] readU(in size_t len) @trusted {
 		return cast(ubyte[]) read(len);
 	}
 
-	byte[] readExact(in int len) @trusted {
+	byte[] readDirect(in size_t len) @trusted {
 		enforce(len > 0 && len <= (getSize() - getPosition()), new OutOfBoundsException("Attempted to read " ~ to!string(len) ~ " but only " ~ to!string(getSize() - getPosition()) ~ " avaliable out of " ~ to!string(getSize())));
 		
-		int oldPos = getPosition();
+		size_t oldPos = getPosition();
 		setPosition(getPosition() + len);
 		return this.buffer[oldPos .. getPosition()];
 	}
@@ -99,8 +91,8 @@ class ByteStream {
 			allocRequest(data.length + getPosition());
 		}
 
-		uint counter = 0;
-		for(uint i = 0; i < data.length; i++) {
+		size_t counter = 0;
+		for(size_t i = 0; i < data.length; i++) {
 			///debug writeln("i: ", i, ", counter: ", counter, ", data: ", data, "data.len: ", data.length, ", buffer.len: ", buffer.length, ", buffer: ", buffer);
 			this.buffer[getPosition() + counter] = data[i];
 			counter++;
@@ -287,15 +279,11 @@ class ByteStream {
 	* Skip "bytes" amount of bytes. The buffer's
 	* position will increment by that amount.
 	*/
-	void skip(in uint bytes) @safe {
+	void skip(in size_t bytes) @safe {
 		setPosition(getPosition() + bytes);
 	}
-	
-	void skip(in ulong bytes) @safe {
-		setPosition(cast(uint) (getPosition() + bytes));
-	}
 
-	void trimTo(in uint bytes) @trusted {
+	void trimTo(in size_t bytes) @trusted {
 		enforce(getSize() - bytes > 0 && getSize() - bytes >= getPosition(), new InvalidArgumentException("Can't trim by value greater than buffer size/position: " ~ to!string(bytes) ~ ", " ~ to!string(getPosition())));
 		buffer.length = bytes;
 	}
@@ -308,20 +296,20 @@ class ByteStream {
 
 	//Getters/Setters
 
-	uint getPosition() @safe {
+	size_t getPosition() @safe {
 		return this.position;
 	}
 
-	void setPosition(in uint position) @safe {
+	void setPosition(in size_t position) @safe {
 		this.position = position;
 	}
 
-	uint getSize() @safe {
-		return cast(uint) this.buffer.length;
+	size_t getSize() @safe {
+		return this.buffer.length;
 	}
 
-	uint getRemainingLength() @safe {
-		return cast(uint) (this.buffer.length - getPosition());
+	size_t getRemainingLength() @safe {
+		return this.buffer.length - getPosition();
 	}
 
 	Endian getEndianess() @safe {

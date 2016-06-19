@@ -17,14 +17,14 @@ abstract class Packet {
 		_decode(stream);
 	}
 
-	protected void _encode(ref ByteStream stream) @safe {
+	protected void _encode(ref ByteStream stream) @trusted {
 		throw new NotImplementedException("Encoding has not been implemented by underlying class.");
 	}
 
-	protected void _decode(ref ByteStream stream) @safe {
+	protected void _decode(ref ByteStream stream) @trusted {
 		throw new NotImplementedException("Decoding has not been implemented by underlying class.");
 	}
 
-	abstract uint getSize();
-	abstract ubyte getID();
+	abstract size_t getSize() @safe;
+	abstract ubyte getID() @safe;
 }

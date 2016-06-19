@@ -1,5 +1,5 @@
 ﻿module draklib.protocol.reliability;
-import draklib.core : RakNetInfo;
+import draklib.info;
 import draklib.bytestream : ByteStream, OutOfBoundsException;
 import draklib.protocol.packet;
 import draklib.util;
@@ -73,7 +73,7 @@ class AcknowledgePacket : Packet {
 	uint[] nums;
 
 	override {
-		protected void _encode(ref ByteStream stream) {
+		protected void _encode(ref ByteStream stream) @trusted {
 			assert(nums !is null, "no sequence numbers provided");
 			uint count = cast(uint) nums.length;
 			uint records = 0;
@@ -115,14 +115,14 @@ class AcknowledgePacket : Packet {
 				records = records + 1;
 			}
 
-			uint oldPos = stream.getPosition();
+			size_t oldPos = stream.getPosition();
 
 			stream.setPosition(1);
 			stream.writeUShort(cast(ushort)records);
 			stream.trimTo(oldPos);
 		}
 
-		protected void _decode(ref ByteStream stream) {
+		protected void _decode(ref ByteStream stream) @trusted {
 			nums = cast(uint[]) [];
 
 			uint count = stream.readUShort();
@@ -144,7 +144,7 @@ class AcknowledgePacket : Packet {
 			}
 		}
 
-		uint getSize() {
+		size_t getSize() @safe {
 			return 2048;
 		}
 	}
@@ -152,16 +152,16 @@ class AcknowledgePacket : Packet {
 
 class ACKPacket : AcknowledgePacket {
 	override {
-		ubyte getID() {
-			return RakNetInfo.ACK;
+		ubyte getID() @safe {
+			return ACK;
 		}
 	}
 }
 
 class NACKPacket : AcknowledgePacket {
 	override {
-		ubyte getID() {
-			return RakNetInfo.NACK;
+		ubyte getID() @safe {
+			return NACK;
 		}
 	}
 }
@@ -173,7 +173,7 @@ class ContainerPacket : Packet {
 	EncapsulatedPacket[] packets;
 
 	override {
-		void decode(byte[] data) {
+		void decode(byte[] data) @safe {
 			ByteStream stream = ByteStream.wrap(data);
 			/*
 			header = ContainerHeader();
@@ -183,14 +183,14 @@ class ContainerPacket : Packet {
 			_decode(stream);
 		}
 
-		protected void _encode(ref ByteStream stream) {
+		protected void _encode(ref ByteStream stream) @trusted {
 			stream.writeUInt24_LE(sequenceNumber);
 			foreach(packet; packets) {
 				packet._encode(stream);
 			}
 		}
 		
-		protected void _decode(ref ByteStream stream) {
+		protected void _decode(ref ByteStream stream) @trusted {
 			packets = cast(EncapsulatedPacket[]) [];
 
 			sequenceNumber = stream.readUInt24_LE();
@@ -208,12 +208,12 @@ class ContainerPacket : Packet {
 			}
 		}
 		
-		ubyte getID() {
+		ubyte getID() @safe {
 			return header;
 		}
 		
-		uint getSize() {
-			uint size = 4;
+		size_t getSize() @safe {
+			size_t size = 4;
 			foreach(pk; packets) {
 				size = size + pk.getSize();
 			}
@@ -234,7 +234,7 @@ class EncapsulatedPacket : Packet {
 	byte[] payload;
 
 	override {
-		protected void _encode(ref ByteStream stream) {
+		protected void _encode(ref ByteStream stream) @trusted {
 			stream.writeByte(cast(byte) ((reliability << 5) | (split ? 0b00010000 : 0)));
 			stream.writeUShort(cast(ushort) (payload.length * 8));
 			if(reliability > 0) {
@@ -255,7 +255,7 @@ class EncapsulatedPacket : Packet {
 			stream.write(payload);
 		}
 		
-		protected void _decode(ref ByteStream stream) {
+		protected void _decode(ref ByteStream stream) @trusted {
 			ubyte header = stream.readUByte();
 			reliability = (header & 0b11100000) >> 5;
 			split = (header & 0b00010000) > 0;
@@ -281,11 +281,11 @@ class EncapsulatedPacket : Packet {
 			payload = stream.read(len);
 		}
 		
-		ubyte getID() {
+		ubyte getID() @safe {
 			return 0;
 		}
 		
-		uint getSize() {
+		size_t getSize() @safe {
 			return cast(uint) (3 + (messageIndex != -1 ? 3 : 0) + ((orderIndex != -1 && orderChannel != -1) ? 4 : 0) + (split ? 10 : 0) + (payload.length));
 		}
 	}

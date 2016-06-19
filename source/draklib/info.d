@@ -1,5 +1,8 @@
 module draklib.info;
 
+immutable string LIBRARY = "draklib";
+immutable string LIBRARY_VERSION = "1.1.0";
+
 immutable uint RAKNET_PROTOCOL = 6;
 immutable ubyte[] RAKNET_MAGIC = [
 0x00,  0xff,  0xff, 0x00,
